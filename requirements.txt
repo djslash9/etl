@@ -4,4 +4,3 @@ nltk
 torch
 transformers
 plotly
-openpyx
