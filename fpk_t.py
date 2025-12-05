@@ -46,7 +46,7 @@ st.set_page_config(
     layout="wide",
 )
 
-hide_streamlit_ui()
+# hide_streamlit_ui()
 
 # --- Custom CSS (Merged from both apps) ---
 st.markdown("""
