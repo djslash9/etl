@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import glob
 import datetime # Import datetime for date formatting
+import calendar
 
 # --- Streamlit App Configuration ---
 def hide_streamlit_ui():
@@ -87,8 +88,10 @@ st.markdown("""
 if 'processed_data' not in st.session_state:
     st.session_state.processed_data = {}
 if 'file_date' not in st.session_state:
-    # Set a default date, but it will be overwritten by user input
-    st.session_state.file_date = datetime.date.today() 
+    # Set a default date to the end of the current month
+    today = datetime.date.today()
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    st.session_state.file_date = datetime.date(today.year, today.month, last_day)
 
 # Main title
 st.markdown('<h1 class="main-header">📊 Google Trends Data Processor</h1>', unsafe_allow_html=True)
