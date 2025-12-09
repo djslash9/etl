@@ -31,8 +31,29 @@ def hide_streamlit_ui():
         <style>
         #MainMenu {display: none;}
         footer {display: none;}
-        [data-testid="stToolbar"] {display: none;}
-        [data-testid="stSidebarCollapsedControl"] {display: block !important; visibility: visible !important; color: black !important;}
+        /* [data-testid="stToolbar"] {display: none;} */ /* Temporarily unhide toolbar to see if it helps, though specific control is targeted below */
+        
+        [data-testid="stSidebarCollapsedControl"] {
+            display: block !important;
+            visibility: visible !important;
+            color: #000000 !important;
+            fill: #000000 !important;
+            background-color: rgba(255, 255, 255, 0.5) !important;
+            z-index: 1000002 !important;
+            position: fixed !important;
+            top: 2rem !important;
+            left: 1rem !important;
+        }
+        
+        /* Specific targeting for the button inside if needed, or SVG */
+        [data-testid="stSidebarCollapsedControl"] svg {
+            fill: #000000 !important;
+            stroke: #000000 !important;
+        }
+        
+        [data-testid="stHeader"] {
+            z-index: 999999 !important;
+        }
         </style>
     """
     st.markdown(hide_menu_and_footer_css, unsafe_allow_html=True)
