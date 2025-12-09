@@ -1,4 +1,12 @@
 import streamlit as st
+
+# This must be the first Streamlit command.
+st.set_page_config(
+    page_title="Multi-Language Sentiment Analyzer",
+    layout="wide",
+    page_icon="📈"
+)
+
 import pandas as pd
 import re
 import string
@@ -24,16 +32,12 @@ def hide_streamlit_ui():
         #MainMenu {display: none;}
         footer {display: none;}
         [data-testid="stToolbar"] {display: none;}
+        [data-testid="stSidebarCollapsedControl"] {display: block !important; visibility: visible !important; color: black !important;}
         </style>
     """
     st.markdown(hide_menu_and_footer_css, unsafe_allow_html=True)
     
-# This must be the first Streamlit command.
-st.set_page_config(
-    page_title="Multi-Language Sentiment Analyzer",
-    layout="wide",
-    page_icon="📈"
-)
+
 
 hide_streamlit_ui()
 
