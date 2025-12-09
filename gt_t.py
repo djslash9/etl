@@ -85,6 +85,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state
+# Initialize session state
 if 'processed_data' not in st.session_state:
     st.session_state.processed_data = {}
 if 'file_date' not in st.session_state:
@@ -92,34 +93,52 @@ if 'file_date' not in st.session_state:
     today = datetime.date.today()
     last_day = calendar.monthrange(today.year, today.month)[1]
     st.session_state.file_date = datetime.date(today.year, today.month, last_day)
+if 'uploader_key' not in st.session_state:
+    st.session_state.uploader_key = 0
+
+def clear_files():
+    st.session_state.uploader_key += 1
+    # No need to explicitly clear session_state variables for files, 
+    # as the new key will create fresh widgets.
 
 # Main title
 st.markdown('<h1 class="main-header">📊 Google Trends Data Processor</h1>', unsafe_allow_html=True)
 
-# --- Inputs Section (No Sidebar) ---
-with st.expander("🗂️ Step 1: Provide Inputs", expanded=True):
-    # File Date input
-    # The user's selection here will automatically update st.session_state.file_date
-    st.date_input(
-        "File Date:",
-        key="file_date", # Directly bind to the session state key
-        help="Select the date associated with these files."
-    )
-    
-    st.markdown("---")
-    st.markdown('<h3 class="sub-header" style="color: #1f77b4; border-color: #1f77b4;">📂 Upload Files</h3>', unsafe_allow_html=True)
+# --- Inputs Section ---
+# Header matching "Upload Files" style (sub-header class)
+st.markdown('<h3 class="sub-header" style="color: #1f77b4; border-color: #1f77b4;">🗂️ Step 1: Provide Inputs</h3>', unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.session_state.web_timeline = st.file_uploader("1. Web Timeline CSV", type="csv")
-        st.session_state.web_geomap_region = st.file_uploader("2. Web Geomap Region CSV", type="csv")
-        st.session_state.web_geomap_city = st.file_uploader("3. Web Geomap City CSV", type="csv")
-    
-    with col2:
-        st.session_state.youtube_timeline = st.file_uploader("4. Youtube Timeline CSV", type="csv")
-        st.session_state.youtube_geomap_region = st.file_uploader("5. Youtube Geomap Region CSV", type="csv")
-        st.session_state.youtube_geomap_city = st.file_uploader("6. Youtube Geomap City CSV", type="csv")
+# File Date input
+st.date_input(
+    "File Date:",
+    key="file_date", 
+    help="Select the date associated with these files."
+)
+
+st.markdown("---")
+
+col_header, col_clear = st.columns([3, 1])
+with col_header:
+    st.markdown('<h3 class="sub-header" style="color: #1f77b4; border-color: #1f77b4; margin-top: 0;">📂 Upload Files</h3>', unsafe_allow_html=True)
+with col_clear:
+    if st.button("🗑️ Clear All Files"):
+        clear_files()
+        st.rerun()
+
+col1, col2 = st.columns(2)
+
+# Use dynamic key for all file uploaders
+key_suffix = str(st.session_state.uploader_key)
+
+with col1:
+    st.session_state.web_timeline = st.file_uploader("1. Web Timeline CSV", type="csv", key=f"web_timeline_{key_suffix}")
+    st.session_state.web_geomap_region = st.file_uploader("2. Web Geomap Region CSV", type="csv", key=f"web_geomap_region_{key_suffix}")
+    st.session_state.web_geomap_city = st.file_uploader("3. Web Geomap City CSV", type="csv", key=f"web_geomap_city_{key_suffix}")
+
+with col2:
+    st.session_state.youtube_timeline = st.file_uploader("4. Youtube Timeline CSV", type="csv", key=f"youtube_timeline_{key_suffix}")
+    st.session_state.youtube_geomap_region = st.file_uploader("5. Youtube Geomap Region CSV", type="csv", key=f"youtube_geomap_region_{key_suffix}")
+    st.session_state.youtube_geomap_city = st.file_uploader("6. Youtube Geomap City CSV", type="csv", key=f"youtube_geomap_city_{key_suffix}")
 
 st.markdown("---")
 
@@ -220,7 +239,7 @@ if process_button:
 
 # --- Display Results Section ---
 st.markdown("---")
-st.markdown('<h2 class="main-header" style="font-size: 2.5rem; margin-bottom: 1rem; color: #ff7f0e;">💾 Step 2: View & Download Results</h2>', unsafe_allow_html=True)
+st.markdown('<h3 class="sub-header" style="color: #ff7f0e; border-color: #ff7f0e;">💾 Step 2: View & Download Results</h3>', unsafe_allow_html=True)
 
 if not st.session_state.processed_data:
     st.markdown('''
