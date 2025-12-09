@@ -760,9 +760,12 @@ def page_single_files():
             zip_data = None
             folder_structure = None
             
-            if file_count > 1:
-                with st.spinner(f"Creating organized ZIP file for {client_name}..."):
-                    zip_path, folder_structure, error = create_client_zip(client_name, temp_output_dir, all_results)
+            if file_count >= 1:
+                # Use provided client name or default to 'processed'
+                c_name = client_name if client_name else "processed"
+                
+                with st.spinner(f"Creating organized ZIP file for {c_name}..."):
+                    zip_path, folder_structure, error = create_client_zip(c_name, temp_output_dir, all_results)
                     
                     if error:
                         st.error(f"❌ Error creating ZIP file: {error}")
@@ -800,12 +803,13 @@ def page_single_files():
         if not success_files:
             st.warning("No files were successfully processed.")
         
-        # > 1 file: Download ZIP
-        elif st.session_state.processed_zip_data:
+        # ZIP File Download Section
+        if st.session_state.processed_zip_data:
             st.success(f"✅ ZIP file created!")
             if st.session_state.processed_folder_structure:
                 display_folder_structure(st.session_state.processed_folder_structure)
             
+            # Use 'processed' as fallback if client_name was empty
             client_name_dl = st.session_state.processed_client_name or "processed"
             zip_filename = f"{client_name_dl}_processed_files.zip"
             
@@ -815,9 +819,10 @@ def page_single_files():
                 file_name=zip_filename,
                 mime='application/zip'
             )
+            st.markdown("---")
         
-        # == 1 file: Provide individual CSV downloads
-        elif success_files:
+        # Individual File Download Section
+        if success_files:
             st.info("Download each processed file individually:")
             for i, result in enumerate(success_files):
                 if 'file_content' in result:
