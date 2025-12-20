@@ -27,6 +27,12 @@ if 'raw_data' not in st.session_state:
     st.session_state.raw_data = None
 if 'analysis_complete' not in st.session_state:
     st.session_state.analysis_complete = False
+if 'competitor_tags' not in st.session_state:
+    st.session_state.competitor_tags = []
+if 'competitor_analysis_done' not in st.session_state:
+    st.session_state.competitor_analysis_done = False
+if 'num_tag_rows' not in st.session_state:
+    st.session_state.num_tag_rows = 1
 
 # --- Hide Default Streamlit Elements ---
 def hide_streamlit_ui():
@@ -394,8 +400,104 @@ if st.session_state.analysis_complete and st.session_state.processed_data is not
     except Exception as e:
         st.warning("Could not create chart.")
 
-    # 8. Download
-    st.subheader("8. Download Data")
+    # 8. Tag Keywords
+    st.subheader("8. Tag Keywords")
+    
+    # helper for dynamic keys
+    competitor_tags_list = []
+    
+    # Loop for dynamic rows
+    for i in range(st.session_state.num_tag_rows):
+        col_k1, col_k2 = st.columns(2)
+        with col_k1:
+            # unique key for each text area
+            kw_val = st.text_area(f"Paste Keywords (comma separated) #{i+1}", key=f"kw_input_{i}", height=100)
+        with col_k2:
+             # unique key for each text input
+            tag_val = st.text_input(f"Tag Name #{i+1}", key=f"tag_input_{i}")
+            
+    # Button to add more rows
+    if st.button("Add New Keywords"):
+        st.session_state.num_tag_rows += 1
+        st.rerun()
+
+    # Assign Button
+    if st.button("Assign Tags for Competitors"):
+        # Collect all valid inputs
+        valid_tags = []
+        for i in range(st.session_state.num_tag_rows):
+            k_key = f"kw_input_{i}"
+            t_key = f"tag_input_{i}"
+            if k_key in st.session_state and t_key in st.session_state:
+                k_val = st.session_state[k_key]
+                t_val = st.session_state[t_key]
+                
+                if k_val and t_val:
+                     kw_list = [k.strip() for k in k_val.split(',') if k.strip()]
+                     if kw_list:
+                         valid_tags.append({'tag': t_val, 'keywords': kw_list})
+        
+        if not valid_tags:
+            st.warning("No valid tags defined. Please enter keywords and tag names.")
+        else:
+            # 1. Determine Search Column
+            search_col = None
+            if "Keywords" in final_df.columns:
+                search_col = "Keywords"
+            else:
+                # Fallback to fuzzy find or content col
+                candidates = [c for c in final_df.columns if "keyword" in c.lower()]
+                if candidates:
+                    search_col = candidates[0]
+                else:
+                    search_col = content_col # Fallback to analyzed text
+            
+            st.info(f"Searching in column: {search_col}")
+            
+            # 2. Assign Tags logic
+            competitor_column = []
+            
+            for index, row in final_df.iterrows():
+                cell_text = str(row[search_col]) if pd.notna(row[search_col]) else ""
+                
+                # Split cell text by comma 
+                tokens = [t.strip() for t in cell_text.split(',')]
+                
+                assigned_competitor = "Other"
+                found_match = False
+                
+                for token in tokens:
+                    # Check this token against all tags from valid_tags list (priority ordered by input row)
+                    for tag_obj in valid_tags:
+                        for kw in tag_obj['keywords']:
+                            # Case-insensitive match 
+                            if kw.lower() in token.lower():
+                                assigned_competitor = tag_obj['tag']
+                                found_match = True
+                                break
+                        if found_match: break
+                    if found_match: break
+                
+                competitor_column.append(assigned_competitor)
+                
+            final_df['Competitor'] = competitor_column
+            st.session_state.processed_data = final_df
+            st.session_state.competitor_analysis_done = True
+            st.rerun()
+
+    # Competitor Visualization
+    if st.session_state.competitor_analysis_done and "Competitor" in final_df.columns:
+        st.subheader("Competitor Distribution")
+        try:
+            comp_counts = final_df['Competitor'].value_counts().reset_index()
+            comp_counts.columns = ['Competitor', 'Count']
+            fig_comp = px.pie(comp_counts, values='Count', names='Competitor', title='Competitor Share')
+            st.plotly_chart(fig_comp, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Could not create competitor chart: {e}")
+
+    # 9. Download Data
+    st.subheader("9. Download Data")
     
     csv = final_df.to_csv(index=False).encode('utf-8')
     date_str = datetime.now().strftime("%Y-%m-%d")
