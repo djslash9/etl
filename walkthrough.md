@@ -37,3 +37,16 @@ Run the app locally with:
 streamlit run client_onboard_gs.py
 ```
 Ensure you have your `json/co.json` credentials file in place.
+
+## Deployment & Secrets (Streamlit Cloud)
+To deploy this app securely:
+1.  **Push to GitHub**: Upload all files *except* `json/` and `.csv` files.
+2.  **Streamlit Cloud**: Connect your repository.
+3.  **Secrets**: Go to App Settings > Secrets and paste your Google Credentials using the TOML format:
+    ```toml
+    [gcp_service_account]
+    type = "service_account"
+    project_id = "..."
+    ...
+    ```
+    (The app is compatible with both the raw credentials and the `[gcp_service_account]` header).

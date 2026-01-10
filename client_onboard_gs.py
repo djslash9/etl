@@ -15,20 +15,40 @@ CONST_COMP_HEADERS = ['comp_id', 'brand_id', 'name', 'Facebook_URL', 'Instagram_
 @st.cache_resource
 def get_sheet():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    try:
-        if 'gcp_service_account' in st.secrets:
-            creds_dict = dict(st.secrets['gcp_service_account'])
+    
+    # Check if we are in a "Secrets" environment (Cloud)
+    # Case A: Secrets nested under [gcp_service_account]
+    if "gcp_service_account" in st.secrets:
+        try:
+            creds_dict = dict(st.secrets["gcp_service_account"])
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
             client = gspread.authorize(creds)
             return client.open_by_key(SHEET_ID)
-    except Exception:
-        pass
+        except Exception as e:
+            st.error(f"Secrets Error (Nested): {e}")
+            st.stop()
+            
+    # Case B: Secrets at Root Level (User pasted JSON without header)
+    elif "type" in st.secrets and st.secrets["type"] == "service_account":
+        try:
+            # Convert config object to dict
+            creds_dict = dict(st.secrets)
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+            client = gspread.authorize(creds)
+            return client.open_by_key(SHEET_ID)
+        except Exception as e:
+            st.error(f"Secrets Error (Root): {e}")
+            st.stop()
+
+    # Case C: Fallback to Local File (Local Development)
     try:
         creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, scope)
         client = gspread.authorize(creds)
         return client.open_by_key(SHEET_ID)
     except Exception as e:
-        st.error(f'Authentication Error: {e}. Please check permissions, secrets, or co.json.')
+        # This is where the user stuck now. Provide clear instruction.
+        st.error(f"Authentication Failed. No Secrets found and local file '{CREDS_FILE}' missing: {e}")
+        st.info("💡 **Deployment Tip**: Go to App Settings -> Secrets and paste your `co.json` content under `[gcp_service_account]`.")
         st.stop()
 
 @st.cache_resource
@@ -258,7 +278,9 @@ def validate_entity(data, is_brand=True):
     return errors
 
 def set_custom_style():
-    st.markdown('\n    <style>\n        /* Force Light Theme overrides */\n        [data-testid="stAppViewContainer"] {\n            background-color: #ffffff;\n        }\n        [data-testid="stSidebar"] {\n            background-color: #f7f9fc;\n        }\n        \n        /* GLOBAL BUTTON OVERRIDE */\n        button, \n        [data-testid="baseButton-secondary"], \n        [data-testid="baseButton-primary"] {\n            background-color: #f2f2f2 !important; \n            color: #000000 !important;\n            border: 1px solid #d9d9d9 !important;\n            border-radius: 6px !important;\n            font-weight: 400 !important;\n            box-shadow: none !important;\n        }\n        \n        button:hover,\n        [data-testid="baseButton-secondary"]:hover, \n        [data-testid="baseButton-primary"]:hover {\n            background-color: #e6e6e6 !important;\n            border-color: #b3b3b3 !important;\n            color: #000000 !important;\n        }\n\n        button:active, button:focus,\n        [data-testid="baseButton-secondary"]:active, \n        [data-testid="baseButton-secondary"]:focus,\n        [data-testid="baseButton-primary"]:active,\n        [data-testid="baseButton-primary"]:focus {\n            background-color: #cccccc !important;\n            color: #000000 !important;\n            border-color: #999999 !important;\n            box-shadow: none !important;\n        }\n    </style>\n    ', unsafe_allow_html=True)
+    # Reverting to Streamlit defaults as requested.
+    # The theme is controlled by .streamlit/config.toml
+    pass
 
 def main():
     try:
