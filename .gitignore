@@ -1,0 +1,12 @@
+# Credentials
+json/
+co.json
+secrets.toml
+.env
+
+# Application artifacts
+*.pyc
+__pycache__/
+
+# Output data
+*.csv
