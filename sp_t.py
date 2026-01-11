@@ -16,7 +16,8 @@ import plotly.express as px
 def hide_streamlit_ui():
     hide_menu_and_footer_css = '\n        <style>\n        #MainMenu {display: none;}\n        footer {display: none;}\n        /* [data-testid="stToolbar"] {display: none;} */ /* Temporarily unhide toolbar to see if it helps, though specific control is targeted below */\n        \n        [data-testid="stSidebarCollapsedControl"] {\n            display: block !important;\n            visibility: visible !important;\n            color: #000000 !important;\n            fill: #000000 !important;\n            background-color: rgba(255, 255, 255, 0.5) !important;\n            z-index: 1000002 !important;\n            position: fixed !important;\n            top: 2rem !important;\n            left: 1rem !important;\n        }\n        \n        /* Specific targeting for the button inside if needed, or SVG */\n        [data-testid="stSidebarCollapsedControl"] svg {\n            fill: #000000 !important;\n            stroke: #000000 !important;\n        }\n        \n        [data-testid="stHeader"] {\n            z-index: 999999 !important;\n        }\n        </style>\n    '
     st.markdown(hide_menu_and_footer_css, unsafe_allow_html=True)
-hide_streamlit_ui()
+
+# UI hiding moved to app() function
 
 @st.cache_resource
 def download_nltk_data():
@@ -114,6 +115,7 @@ def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
 def app():
+    hide_streamlit_ui()
     st.markdown('<h1 style="text-align: center; color: #002b5c;">🧠 Sprout Social Sentiment Analyzer</h1>', unsafe_allow_html=True)
     st.markdown('Upload one or more CSV files to perform sentiment analysis. All files will be merged and analyzed as one.')
     uploaded_files = st.file_uploader('📂 Choose CSV files', type='csv', accept_multiple_files=True)

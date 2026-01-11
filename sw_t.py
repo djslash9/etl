@@ -5,7 +5,9 @@ import numpy as np
 import re
 from io import BytesIO
 from datetime import datetime, timedelta
-st.markdown('\n<style>\n    .main {\n        background-color: #f5f5f5;\n    }\n    .stButton>button {\n        width: 100%;\n        border-radius: 8px;\n        height: 3em;\n        font-weight: bold;\n    }\n    .extract-btn>button {\n        background-color: #4CAF50;\n        color: white;\n    }\n    .clear-btn>button {\n        background-color: #f44336;\n        color: white;\n    }\n    .continue-btn>button {\n        background-color: #2196F3;\n        color: white;\n    }\n    /* Force primary buttons to be Blue */\n    div[data-testid="stButton"] > button[kind="primary"] {\n        background-color: #2196F3 !important;\n        border-color: #2196F3 !important;\n        color: white !important;\n    }\n    div[data-testid="stButton"] > button[kind="primary"]:hover {\n        background-color: #1976D2 !important;\n        border-color: #1976D2 !important;\n    }\n    h1, h2, h3 {\n        color: #333;\n    }\n    .footer {\n        position: fixed;\n        left: 0;\n        bottom: 0;\n        width: 100%;\n        background-color: #333;\n        color: white;\n        text-align: center;\n        padding: 10px;\n        font-size: 0.8em;\n    }\n</style>\n', unsafe_allow_html=True)
+
+# CSS moved to app() function
+
 
 @st.cache_resource
 def load_reader():
@@ -242,6 +244,7 @@ def extract_channel(image_bytes, col_name, reader):
     return df_temp
 
 def app():
+    st.markdown('\n<style>\n    .main {\n        background-color: #f5f5f5;\n    }\n    .stButton>button {\n        width: 100%;\n        border-radius: 8px;\n        height: 3em;\n        font-weight: bold;\n    }\n    .extract-btn>button {\n        background-color: #4CAF50;\n        color: white;\n    }\n    .clear-btn>button {\n        background-color: #f44336;\n        color: white;\n    }\n    .continue-btn>button {\n        background-color: #2196F3;\n        color: white;\n    }\n    /* Force primary buttons to be Blue */\n    div[data-testid="stButton"] > button[kind="primary"] {\n        background-color: #2196F3 !important;\n        border-color: #2196F3 !important;\n        color: white !important;\n    }\n    div[data-testid="stButton"] > button[kind="primary"]:hover {\n        background-color: #1976D2 !important;\n        border-color: #1976D2 !important;\n    }\n    h1, h2, h3 {\n        color: #333;\n    }\n    .footer {\n        position: fixed;\n        left: 0;\n        bottom: 0;\n        width: 100%;\n        background-color: #333;\n        color: white;\n        text-align: center;\n        padding: 10px;\n        font-size: 0.8em;\n    }\n</style>\n', unsafe_allow_html=True)
     st.markdown('<h1 style="text-align: center; color: #002b5c;">🌐 SW Table Extractor</h1>', unsafe_allow_html=True)
     st.markdown('Extract data from SimilarWeb images and convert to CSV.')
     with st.container():

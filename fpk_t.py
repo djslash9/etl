@@ -23,7 +23,9 @@ if sys.platform == 'win32':
 import logging
 logging.getLogger('nltk').setLevel(logging.ERROR)
 logging.getLogger('streamlit').setLevel(logging.ERROR)
-st.markdown('\n<style>\n    .main-header {\n        font-size: 2.5rem;\n        font-weight: bold;\n        color: #1f77b4;\n        text-align: center;\n        margin-bottom: 2rem;\n    }\n    .metric-card {\n        background-color: #f8f9fa;\n        padding: 1rem;\n        border-radius: 10px;\n        text-align: center;\n        border: 1px solid #e9ecef;\n    }\n    .metric-value {\n        font-size: 2rem;\n        font-weight: bold;\n        color: #1f77b4;\n    }\n    .metric-label {\n        font-size: 1rem;\n        color: #6c757d;\n    }\n    .stButton>button {\n        width: 100%;\n    }\n    /* From Single File App */\n    .file-list-item {\n        display: flex;\n        align-items: center;\n        justify-content: space-between;\n        padding: 0.5rem;\n        border-radius: 0.5rem;\n        background-color: #f0f2f6;\n        margin-bottom: 0.5rem;\n    }\n    .file-list-item span {\n        font-family: monospace;\n    }\n    /* From Zip File App */\n    .warning-box {\n        padding: 1rem;\n        border-radius: 0.5rem;\n        background-color: #fff3cd;\n        border: 1px solid #ffeaa7;\n        margin: 1rem 0;\n    }\n    .zip-info {\n        background-color: #e8f4fd;\n        padding: 1rem;\n        border-radius: 0.5rem;\n        border: 1px solid #b8daff;\n        margin: 1rem 0;\n    }\n</style>\n', unsafe_allow_html=True)
+
+# CSS moved to app() function
+
 
 def sanitize_sheet_name(sheet_name):
     sanitized = re.sub('[\\.…]', '_', sheet_name)
@@ -555,6 +557,7 @@ def page_zip_processor(client_name):
                 st.info('Processing finished. Upload a new ZIP to start again.')
 
 def app():
+    st.markdown('\n<style>\n    .main-header {\n        font-size: 2.5rem;\n        font-weight: bold;\n        color: #1f77b4;\n        text-align: center;\n        margin-bottom: 2rem;\n    }\n    .metric-card {\n        background-color: #f8f9fa;\n        padding: 1rem;\n        border-radius: 10px;\n        text-align: center;\n        border: 1px solid #e9ecef;\n    }\n    .metric-value {\n        font-size: 2rem;\n        font-weight: bold;\n        color: #1f77b4;\n    }\n    .metric-label {\n        font-size: 1rem;\n        color: #6c757d;\n    }\n    .stButton>button {\n        width: 100%;\n    }\n    /* From Single File App */\n    .file-list-item {\n        display: flex;\n        align-items: center;\n        justify-content: space-between;\n        padding: 0.5rem;\n        border-radius: 0.5rem;\n        background-color: #f0f2f6;\n        margin-bottom: 0.5rem;\n    }\n    .file-list-item span {\n        font-family: monospace;\n    }\n    /* From Zip File App */\n    .warning-box {\n        padding: 1rem;\n        border-radius: 0.5rem;\n        background-color: #fff3cd;\n        border: 1px solid #ffeaa7;\n        margin: 1rem 0;\n    }\n    .zip-info {\n        background-color: #e8f4fd;\n        padding: 1rem;\n        border-radius: 0.5rem;\n        border: 1px solid #b8daff;\n        margin: 1rem 0;\n    }\n</style>\n', unsafe_allow_html=True)
     st.markdown('<h1 style="text-align: center; color: #002b5c;">� FPK File Processor</h1>', unsafe_allow_html=True)
     st.markdown('### 👤 Client Information')
     client_name = st.text_input('Client Name:', placeholder='Enter client name (e.g., Dialog_Axiata, Mobitel, etc.)', help='Required for creating the output ZIP file', key='client_name_global')
