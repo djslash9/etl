@@ -52,12 +52,8 @@ stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 sia = SentimentIntensityAnalyzer()
 label_map = {0: 'Neutral', 1: 'Positive', 2: 'Negative'}
-if 'log' not in st.session_state:
-    st.session_state.log = []
-if 'main_df' not in st.session_state:
-    st.session_state.main_df = None
-if 'analyzed_df' not in st.session_state:
-    st.session_state.analyzed_df = None
+
+
 
 def log_message(message):
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -114,8 +110,17 @@ def get_final_sentiment(text):
 def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
+def initialize_session_state():
+    if 'log' not in st.session_state:
+        st.session_state.log = []
+    if 'main_df' not in st.session_state:
+        st.session_state.main_df = None
+    if 'analyzed_df' not in st.session_state:
+        st.session_state.analyzed_df = None
+
 def app():
     hide_streamlit_ui()
+    initialize_session_state()
     st.markdown('<h1 style="text-align: center; color: #002b5c;">🧠 Sprout Social Sentiment Analyzer</h1>', unsafe_allow_html=True)
     st.markdown('Upload one or more CSV files to perform sentiment analysis. All files will be merged and analyzed as one.')
     uploaded_files = st.file_uploader('📂 Choose CSV files', type='csv', accept_multiple_files=True)
@@ -137,6 +142,11 @@ def app():
             log_message(f'Error loading files: {e}')
             st.error(f'An error occurred during file loading: {e}')
             st.session_state.main_df = None
+    
+    # Ensure initialization again just in case (though initialize_session_state covers it)
+    if 'main_df' not in st.session_state:
+        st.session_state.main_df = None
+        
     if st.session_state.main_df is not None:
         df = st.session_state.main_df
         st.subheader('📝 Merged Data Preview')
