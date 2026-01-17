@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import time
+import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title='Client Onboarding Portal', page_icon='✨', layout='wide')
@@ -9,36 +10,52 @@ st.markdown('\n<style>\n    @import url(\'https://fonts.googleapis.com/css2?fami
 SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 CREDS_FILE = 'json/co.json'
 SHEET_ID = '1avuWNfqfLykbvgtGCP52hif9nF4TqXAm5Q21Im8thps'
-CONST_BRAND_HEADERS = ['brand_id', 'org_id', 'name', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL', 'Google_Trends', 'Meta_Access', 'Meta_Access_Details', 'Meta_Ads_Access', 'Meta_Ads_Access_Details', 'GA_Access', 'GA_Access_Details', 'GAds_Access', 'GAds_Access_Details', 'LinkedIn_Access', 'LinkedIn_Access_Details', 'TikTok_Access', 'TikTok_Access_Details']
+CONST_BRAND_HEADERS = ['brand_id', 'org_id', 'name', 'Status', 'Updated_Date', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL', 'Google_Trends', 'Meta_Access', 'Meta_Access_Details', 'Meta_Ads_Access', 'Meta_Ads_Access_Details', 'GA_Access', 'GA_Access_Details', 'GAds_Access', 'GAds_Access_Details', 'LinkedIn_Access', 'LinkedIn_Access_Details', 'TikTok_Access', 'TikTok_Access_Details']
 CONST_COMP_HEADERS = ['comp_id', 'brand_id', 'name', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL']
 
 @st.cache_resource
 def get_sheet():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     
-    # Check if we are in a "Secrets" environment (Cloud)
-    # Case A: Secrets nested under [gcp_service_account]
-    if "gcp_service_account" in st.secrets:
+    # Priority 1: Local File (Local Development)
+    # We check this FIRST to avoid 'No secrets found' error from st.secrets if running locally with co.json
+    if os.path.exists(CREDS_FILE):
         try:
-            creds_dict = dict(st.secrets["gcp_service_account"])
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+            creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, scope)
             client = gspread.authorize(creds)
             return client.open_by_key(SHEET_ID)
         except Exception as e:
-            st.error(f"Secrets Error (Nested): {e}")
-            st.stop()
-            
-    # Case B: Secrets at Root Level (User pasted JSON without header)
-    elif "type" in st.secrets and st.secrets["type"] == "service_account":
+            # If local file exists but fails, log it and fall through to secrets
+            print(f"Local auth failed: {e}")
+
+    # Priority 2: Secrets (Cloud / Deployment)
+    try:
+        # Wrap the check itself in try-except because simply accessing st.secrets might raise error if missing
         try:
-            # Convert config object to dict
-            creds_dict = dict(st.secrets)
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-            client = gspread.authorize(creds)
-            return client.open_by_key(SHEET_ID)
-        except Exception as e:
-            st.error(f"Secrets Error (Root): {e}")
-            st.stop()
+            secrets = st.secrets
+        except Exception:
+            secrets = {}
+
+        if "gcp_service_account" in secrets:
+            try:
+                creds_dict = dict(secrets["gcp_service_account"])
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                client = gspread.authorize(creds)
+                return client.open_by_key(SHEET_ID)
+            except Exception as e:
+                st.error(f"Secrets Error (Nested): {e}")
+                st.stop()
+        elif "type" in secrets and secrets["type"] == "service_account":
+            try:
+                creds_dict = dict(secrets)
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                client = gspread.authorize(creds)
+                return client.open_by_key(SHEET_ID)
+            except Exception as e:
+                st.error(f"Secrets Error (Root): {e}")
+                st.stop()
+    except Exception:
+        pass
 
     # Case C: Fallback to Local File (Local Development)
     try:
@@ -46,9 +63,9 @@ def get_sheet():
         client = gspread.authorize(creds)
         return client.open_by_key(SHEET_ID)
     except Exception as e:
-        # This is where the user stuck now. Provide clear instruction.
-        st.error(f"Authentication Failed. No Secrets found and local file '{CREDS_FILE}' missing: {e}")
-        st.info("💡 **Deployment Tip**: Go to App Settings -> Secrets and paste your `co.json` content under `[gcp_service_account]`.")
+        # Only show error if BOTH methods failed and we are not just missing the local file on cloud
+        # If on cloud, st.secrets attempt would have already run.
+        st.error(f"Authentication Failed: {e}")
         st.stop()
 
 @st.cache_resource
@@ -63,7 +80,8 @@ def init_db():
         ws_org.append_row(['org_id', 'name'])
     try:
         ws_brands = sheet.worksheet('Brands')
-        ws_brands.update(range_name='A1:W1', values=[CONST_BRAND_HEADERS])
+        # Update headers to include new fields
+        ws_brands.update(range_name='A1:Y1', values=[CONST_BRAND_HEADERS])
     except gspread.WorksheetNotFound:
         ws_brands = sheet.add_worksheet(title='Brands', rows=100, cols=26)
         ws_brands.append_row(CONST_BRAND_HEADERS)
@@ -122,7 +140,6 @@ def get_org_name(org_id):
     return 'Unknown'
 
 def with_retry(func):
-
     def wrapper(*args, **kwargs):
         attempts = 3
         for i in range(attempts):
@@ -145,7 +162,18 @@ def save_organization(name):
 def transform_brand_row(brand_id, org_id, data):
     soc = data.get('social_links', {})
     acc = data.get('access', {})
-    return [brand_id, org_id, data.get('name', ''), soc.get('Facebook', ''), soc.get('Instagram', ''), soc.get('Twitter(X)', ''), soc.get('Youtube', ''), soc.get('TikTok', ''), soc.get('LinkedIn', ''), data.get('website_url', ''), data.get('google_trends', ''), acc.get('Meta_Access', 'No'), acc.get('Meta_Access_Details', ''), acc.get('Meta_Ads_Access', 'No'), acc.get('Meta_Ads_Access_Details', ''), acc.get('GA_Access', 'No'), acc.get('GA_Access_Details', ''), acc.get('GAds_Access', 'No'), acc.get('GAds_Access_Details', ''), acc.get('LinkedIn_Access', 'No'), acc.get('LinkedIn_Access_Details', ''), acc.get('TikTok_Access', 'No'), acc.get('TikTok_Access_Details', '')]
+    return [
+        brand_id, org_id, data.get('name', ''), 
+        data.get('status', 'Pending'), data.get('updated_date', ''),
+        soc.get('Facebook', ''), soc.get('Instagram', ''), soc.get('Twitter(X)', ''), soc.get('Youtube', ''), soc.get('TikTok', ''), soc.get('LinkedIn', ''), 
+        data.get('website_url', ''), data.get('google_trends', ''), 
+        acc.get('Meta_Access', 'No'), acc.get('Meta_Access_Details', ''), 
+        acc.get('Meta_Ads_Access', 'No'), acc.get('Meta_Ads_Access_Details', ''), 
+        acc.get('GA_Access', 'No'), acc.get('GA_Access_Details', ''), 
+        acc.get('GAds_Access', 'No'), acc.get('GAds_Access_Details', ''), 
+        acc.get('LinkedIn_Access', 'No'), acc.get('LinkedIn_Access_Details', ''), 
+        acc.get('TikTok_Access', 'No'), acc.get('TikTok_Access_Details', '')
+    ]
 
 def transform_comp_row(comp_id, brand_id, data):
     soc = data.get('social_links', {})
@@ -159,7 +187,8 @@ def save_brand(org_id, brand_data, existing_id=None):
         cell = ws.find(str(existing_id), in_column=1)
         if cell:
             row_data = transform_brand_row(existing_id, org_id, brand_data)
-            cell_range = f'A{cell.row}:W{cell.row}'
+            # Update range A:Y for all cols including status/date
+            cell_range = f'A{cell.row}:Y{cell.row}'
             ws.update(range_name=cell_range, values=[row_data])
             return existing_id
     else:
@@ -191,13 +220,30 @@ def get_all_organizations():
     return pd.DataFrame(records)
 
 def row_to_brand_dict(row):
-
     def g(k):
         return row.get(k, '')
-    return {'id': row['brand_id'], 'name': row['name'], 'website_url': g('Website_URL'), 'google_trends': g('Google_Trends'), 'social_links': {'Facebook': g('Facebook_URL'), 'Instagram': g('Instagram_URL'), 'Twitter(X)': g('Twitter_URL'), 'Youtube': g('Youtube_URL'), 'TikTok': g('TikTok_URL'), 'LinkedIn': g('LinkedIn_URL')}, 'access': {'Meta_Access': g('Meta_Access'), 'Meta_Access_Details': g('Meta_Access_Details'), 'Meta_Ads_Access': g('Meta_Ads_Access'), 'Meta_Ads_Access_Details': g('Meta_Ads_Access_Details'), 'GA_Access': g('GA_Access'), 'GA_Access_Details': g('GA_Access_Details'), 'GAds_Access': g('GAds_Access'), 'GAds_Access_Details': g('GAds_Access_Details'), 'LinkedIn_Access': g('LinkedIn_Access'), 'LinkedIn_Access_Details': g('LinkedIn_Access_Details'), 'TikTok_Access': g('TikTok_Access'), 'TikTok_Access_Details': g('TikTok_Access_Details')}}
+    return {
+        'id': row['brand_id'], 
+        'name': row['name'], 
+        'status': g('Status') if g('Status') else 'Pending',
+        'updated_date': g('Updated_Date'),
+        'website_url': g('Website_URL'), 
+        'google_trends': g('Google_Trends'), 
+        'social_links': {
+            'Facebook': g('Facebook_URL'), 'Instagram': g('Instagram_URL'), 'Twitter(X)': g('Twitter_URL'), 
+            'Youtube': g('Youtube_URL'), 'TikTok': g('TikTok_URL'), 'LinkedIn': g('LinkedIn_URL')
+        }, 
+        'access': {
+            'Meta_Access': g('Meta_Access'), 'Meta_Access_Details': g('Meta_Access_Details'), 
+            'Meta_Ads_Access': g('Meta_Ads_Access'), 'Meta_Ads_Access_Details': g('Meta_Ads_Access_Details'), 
+            'GA_Access': g('GA_Access'), 'GA_Access_Details': g('GA_Access_Details'), 
+            'GAds_Access': g('GAds_Access'), 'GAds_Access_Details': g('GAds_Access_Details'), 
+            'LinkedIn_Access': g('LinkedIn_Access'), 'LinkedIn_Access_Details': g('LinkedIn_Access_Details'), 
+            'TikTok_Access': g('TikTok_Access'), 'TikTok_Access_Details': g('TikTok_Access_Details')
+        }
+    }
 
 def row_to_comp_dict(row):
-
     def g(k):
         return row.get(k, '')
     return {'id': row['comp_id'], 'name': row['name'], 'website_url': g('Website_URL'), 'social_links': {'Facebook': g('Facebook_URL'), 'Instagram': g('Instagram_URL'), 'Twitter(X)': g('Twitter_URL'), 'Youtube': g('Youtube_URL'), 'TikTok': g('TikTok_URL'), 'LinkedIn': g('LinkedIn_URL')}}
@@ -238,29 +284,42 @@ def render_social_inputs(key_prefix, current_soc=None):
     return links
 
 def render_entity_form(prefix, default_data=None, is_brand=True):
-    name_val = st.text_input(f"{('Brand' if is_brand else 'Competitor')} Name", value=default_data.get('name', '') if default_data else '', key=f'{prefix}_name')
+    if not default_data:
+        default_data = {}
+        
+    status_val = default_data.get('status', 'Pending')
+    updated_date_val = default_data.get('updated_date', '')
+    
+    if is_brand:
+        # Single Column for Brand Name (Status removed)
+        name_val = st.text_input("Brand Name", value=default_data.get('name', ''), key=f'{prefix}_name')
+    else:
+        name_val = st.text_input("Competitor Name", value=default_data.get('name', ''), key=f'{prefix}_name')
+
     st.markdown('##### 🔗 Social Media')
-    def_soc = default_data.get('social_links') if default_data else None
+    def_soc = default_data.get('social_links')
     socials = render_social_inputs(f'{prefix}_soc', def_soc)
     st.markdown('##### 🌐 Website')
-    website = st.text_input('Website URL(s)', value=default_data.get('website_url', '') if default_data else '', key=f'{prefix}_web')
+    website = st.text_input('Website URL(s)', value=default_data.get('website_url', ''), key=f'{prefix}_web')
     google_trends = ''
     access_data = {}
     if is_brand:
         st.markdown('##### 📈 Google Trends')
-        google_trends = st.text_area('Google Trends URL/Details', value=default_data.get('google_trends', '') if default_data else '', key=f'{prefix}_gt', height=68)
+        google_trends = st.text_area('Google Trends URL/Details', value=default_data.get('google_trends', ''), key=f'{prefix}_gt', height=68)
         st.markdown('##### 🔐 Platform Access')
-        def_acc = default_data.get('access') if default_data else None
+        def_acc = default_data.get('access')
         platforms = ['Meta', 'Meta_Ads', 'GA', 'GAds', 'LinkedIn', 'TikTok']
         for p in platforms:
             label = p.replace('_', ' ')
-            if p == 'GA':
-                label = 'Google Analytics'
-            if p == 'GAds':
-                label = 'Google Ads'
+            if p == 'GA': label = 'Google Analytics'
+            if p == 'GAds': label = 'Google Ads'
             chunk = render_access_inputs(label, f'{prefix}_{p}', def_acc)
             access_data.update(chunk)
-    return {'name': name_val, 'social_links': socials, 'website_url': website, 'google_trends': google_trends, 'access': access_data}
+            
+    return {
+        'name': name_val,
+        'social_links': socials, 'website_url': website, 'google_trends': google_trends, 'access': access_data
+    }
 
 def validate_entity(data, is_brand=True):
     errors = []
@@ -278,8 +337,6 @@ def validate_entity(data, is_brand=True):
     return errors
 
 def set_custom_style():
-    # Reverting to Streamlit defaults as requested.
-    # The theme is controlled by .streamlit/config.toml
     pass
 
 def main():
@@ -288,46 +345,73 @@ def main():
     except Exception as e:
         st.error(f'Connection Error: {e}')
         return
+        
     set_custom_style()
     try:
         st.sidebar.image('logo.png')
     except:
         st.sidebar.warning('Logo not found (logo.png)')
     st.sidebar.title('🚀 Onboarding')
-    page = st.sidebar.radio('Navigate', ['New Client', 'Manage / Edit', 'Export Data'])
+    page = st.sidebar.radio('Navigate', ['New Client', 'Export Data', 'Manage / Edit', 'Status Manager'])
     if page == 'New Client':
         render_new_client_flow()
-    elif page == 'Manage / Edit':
-        render_manage_edit()
     elif page == 'Export Data':
         render_export()
+    elif page == 'Manage / Edit':
+        render_manage_edit()
+    elif page == 'Status Manager':
+        render_status_page()
 
 def render_new_client_flow():
     st.markdown('<h1>New Client Onboarding</h1>', unsafe_allow_html=True)
     org_name_input = st.text_input('🏢 Enter Organization Name', placeholder='e.g. Acme Corp')
+    # State Management for persistence
+    if 'last_input_org' not in st.session_state:
+        st.session_state['last_input_org'] = ''
+        
+    # If input changed, reset state
+    if st.session_state['last_input_org'] != org_name_input:
+        st.session_state['last_input_org'] = org_name_input
+        # Clear states
+        for k in ['checked_org_id', 'checked_org_found', 'new_client_mode', 'target_org_id', 'target_org_name']:
+            if k in st.session_state: del st.session_state[k]
+
     if st.button('Check Organization'):
         if not org_name_input:
             st.error('Please enter an organization name.')
             return
         with st.spinner('Checking organization...'):
             existing_id = check_org_exists(org_name_input)
+            st.session_state['checked_org_id'] = existing_id
+            st.session_state['checked_org_found'] = True
+            
+            if existing_id:
+                st.session_state['new_client_mode'] = 'add_brand'
+                st.session_state['target_org_id'] = existing_id
+                st.session_state['target_org_name'] = org_name_input
+            else:
+                st.session_state['new_client_mode'] = 'new_org'
+                st.session_state['target_org_name'] = org_name_input
+
+    # Persistent Render Logic
+    if st.session_state.get('checked_org_found'):
+        existing_id = st.session_state.get('checked_org_id')
         if existing_id:
             st.info(f"✅ Organization **'{org_name_input}'** found (ID: {existing_id}).")
             brands = get_org_brands(existing_id)
             if brands:
                 st.markdown('### Existing Brands:')
                 for b in brands:
-                    st.write(f"- {b['name']}")
+                    # Show Status and Date
+                    s_txt = b.get('Status', 'Pending')
+                    d_txt = b.get('Updated_Date', '')
+                    suffix = f" [{s_txt}" + (f" - {d_txt}" if d_txt else "") + "]"
+                    st.write(f"- {b['name']}{suffix}")
                 st.markdown('---')
             st.subheader(f'➕ Create New Brand for {org_name_input}')
-            st.session_state['new_client_mode'] = 'add_brand'
-            st.session_state['target_org_id'] = existing_id
-            st.session_state['target_org_name'] = org_name_input
         else:
             st.success(f"🆕 Creating New Organization: **'{org_name_input}'**")
             st.subheader(f'➕ Create First Brand')
-            st.session_state['new_client_mode'] = 'new_org'
-            st.session_state['target_org_name'] = org_name_input
     mode = st.session_state.get('new_client_mode')
     if mode == 'add_brand':
         render_brand_creation_form(st.session_state['target_org_id'], st.session_state['target_org_name'], is_new_org=False)
@@ -367,7 +451,13 @@ def render_brand_creation_form(org_id, org_name, is_new_org=False):
             with st.spinner('Saving data...'):
                 if is_new_org:
                     target_org_id = save_organization(org_name)
-                b_id = save_brand(target_org_id, b_data)
+                # Ensure status/date preserved or defaulted if not in form
+                # For new brand, defaults are fine.
+                full_b_data = b_data.copy()
+                full_b_data['status'] = 'Pending'
+                full_b_data['updated_date'] = ''
+                
+                b_id = save_brand(target_org_id, full_b_data)
                 for c_data in comps_payload:
                     save_competitor(b_id, c_data)
             st.success(f"Successfully saved Brand '{b_data['name']}' with {len(comps_payload)} competitors.")
@@ -375,6 +465,76 @@ def render_brand_creation_form(org_id, org_name, is_new_org=False):
             st.rerun()
         except Exception as e:
             st.error(f'Error saving: {e}')
+
+def render_status_page():
+    st.markdown('<h1>Status Manager</h1>', unsafe_allow_html=True)
+    df_orgs = get_all_organizations()
+    if df_orgs.empty:
+        st.info('No clients found.')
+        return
+    
+    selected_org_name = st.selectbox('Select Organization', df_orgs['name'].tolist(), key='status_org_sel')
+    if selected_org_name:
+        org_row = df_orgs[df_orgs['name'] == selected_org_name].iloc[0]
+        org_id = int(org_row['org_id'])
+        
+        # Fresh fetch of brands
+        with st.spinner('Loading brands...'):
+            brand_rows = get_org_brands(org_id)
+            
+        if not brand_rows:
+            st.warning('No brands found.')
+            return
+
+        st.markdown(f"### Update Status for **{selected_org_name}**")
+        
+        # Create a form-like structure or just direct updates
+        # Using a container for each brand
+        for b_row in brand_rows:
+            b_data = row_to_brand_dict(b_row)
+            b_id = b_data['id']
+            b_name = b_data['name']
+            curr_status = b_data.get('status', 'Pending')
+            curr_date = b_data.get('updated_date', '')
+
+            with st.container():
+                st.markdown(f"#### {b_name}")
+                
+                # 1. Status
+                new_status = st.selectbox("Status", ["Pending", "Updated Web App"], 
+                                        index=0 if curr_status == "Pending" else 1, 
+                                        key=f'st_stat_{b_id}')
+                
+                # 2. Date Logic
+                d_val = None
+                if curr_date:
+                    try: d_val = pd.to_datetime(curr_date).date()
+                    except: pass
+                
+                # Auto-update logic
+                if new_status == "Updated Web App" and curr_status != "Updated Web App":
+                        d_val = pd.Timestamp.now().date()
+                elif new_status == "Updated Web App" and not d_val:
+                        d_val = pd.Timestamp.now().date()
+
+                new_date = st.date_input("Updated Date", value=d_val, key=f'st_date_{b_id}')
+
+                # 3. Save Button
+                if st.button("Save Status & Date", key=f'save_stat_{b_id}'):
+                    try:
+                        updated_b_data = b_data.copy()
+                        updated_b_data['status'] = new_status
+                        updated_b_data['updated_date'] = new_date.strftime('%Y-%m-%d') if new_date else ''
+                        
+                        save_brand(org_id, updated_b_data, existing_id=b_id)
+                        st.toast(f"✅ Updated {b_name}!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed: {e}")
+                
+                st.divider()
+                st.divider()
 
 def render_manage_edit():
     st.markdown('<h1>Manage Clients</h1>', unsafe_allow_html=True)
@@ -387,54 +547,73 @@ def render_manage_edit():
         org_row = df_orgs[df_orgs['name'] == selected_org_name].iloc[0]
         org_id = int(org_row['org_id'])
         brand_rows = get_org_brands(org_id)
+        
+        if not brand_rows:
+            st.info("No brands found.")
+        else:
+            st.markdown(f"### Brands for {selected_org_name}")
+            for b_row in brand_rows:
+                brand_dict = row_to_brand_dict(b_row)
+                b_id = brand_dict['id']
+                b_name = brand_dict['name']
+                
+                status_summ = brand_dict.get('status', 'Pending')
+                date_summ = brand_dict.get('updated_date', '')
+                summ_text = f" [{status_summ}" + (f" - {date_summ}" if date_summ else "") + "]"
+                
+                with st.expander(f'🏷️ Brand: {b_name}{summ_text}', expanded=False):
+                    comps_list = get_full_brand_details(b_id)
+                    st.markdown('### 📝 Edit Brand Details')
+                    edited_brand = render_entity_form(f'edit_b_{b_id}', default_data=brand_dict, is_brand=True)
+                    st.markdown('### ⚔️ Edit Competitors')
+                    edited_comps_list = []
+                    for c_dict in comps_list:
+                        c_id = c_dict['id']
+                        st.markdown(f"**Competitor: {c_dict['name']}**")
+                        ec = render_entity_form(f'edit_c_{c_id}', default_data=c_dict, is_brand=False)
+                        ec['id'] = c_id
+                        edited_comps_list.append(ec)
+                        st.divider()
+                    if st.checkbox(f'Add New Competitor for {b_name}?', key=f'chk_new_c_{b_id}'):
+                        new_c_data = render_entity_form(f'add_c_to_{b_id}', is_brand=False)
+                        new_c_data['is_new'] = True
+                        edited_comps_list.append(new_c_data)
+                    if st.button(f'Update {selected_org_name} details for {b_name}', key=f'upd_btn_{b_id}'):
+                        errors = validate_entity(edited_brand, True)
+                        for ec in edited_comps_list:
+                            errors.extend(validate_entity(ec, False))
+                        if errors:
+                            for e in errors:
+                                st.error(e)
+                        else:
+                            try:
+                                with st.spinner('Updating details...'):
+                                    # Merge existing Status/Date into the edited_brand payload so they aren't lost
+                                    # existing_brand_full = row_to_brand_dict(next(r for r in brand_rows if str(r['brand_id']) == str(b_id)))
+                                    # Actually, user provided default_data=brand_dict to render_entity_form
+                                    # but render_entity_form no longer returns status/date.
+                                    # So we must manually re-attach the ORIGINAL status/date to the payload
+                                    edited_brand['status'] = brand_dict.get('status', 'Pending')
+                                    edited_brand['updated_date'] = brand_dict.get('updated_date', '')
+                                    
+                                    save_brand(org_id, edited_brand, existing_id=b_id)
+                                    for ec in edited_comps_list:
+                                        if ec.get('is_new'):
+                                            save_competitor(b_id, ec)
+                                        else:
+                                            save_competitor(b_id, ec, existing_id=ec['id'])
+                                st.success('Updated successfully!')
+                                time.sleep(1)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f'Update failed: {e}')
+                    st.markdown('---')
+                    csv_data = generate_brand_csv(selected_org_name, edited_brand, edited_comps_list)
+                    st.download_button('📥 Download CSV', csv_data, f'{selected_org_name}_{b_name}.csv', 'text/csv')
+        
+        st.markdown('---')
         with st.expander('➕ Add New Brand', expanded=False):
             render_brand_creation_form(org_id, selected_org_name, is_new_org=False)
-        st.markdown('---')
-        for b_row in brand_rows:
-            brand_dict = row_to_brand_dict(b_row)
-            b_id = brand_dict['id']
-            b_name = brand_dict['name']
-            with st.expander(f'🏷️ Brand: {b_name}', expanded=False):
-                comps_list = get_full_brand_details(b_id)
-                st.markdown('### 📝 Edit Brand Details')
-                edited_brand = render_entity_form(f'edit_b_{b_id}', default_data=brand_dict, is_brand=True)
-                st.markdown('### ⚔️ Edit Competitors')
-                edited_comps_list = []
-                for c_dict in comps_list:
-                    c_id = c_dict['id']
-                    st.markdown(f"**Competitor: {c_dict['name']}**")
-                    ec = render_entity_form(f'edit_c_{c_id}', default_data=c_dict, is_brand=False)
-                    ec['id'] = c_id
-                    edited_comps_list.append(ec)
-                    st.divider()
-                if st.checkbox(f'Add New Competitor for {b_name}?', key=f'chk_new_c_{b_id}'):
-                    new_c_data = render_entity_form(f'add_c_to_{b_id}', is_brand=False)
-                    new_c_data['is_new'] = True
-                    edited_comps_list.append(new_c_data)
-                if st.button(f'Update {selected_org_name} details for {b_name}', key=f'upd_btn_{b_id}'):
-                    errors = validate_entity(edited_brand, True)
-                    for ec in edited_comps_list:
-                        errors.extend(validate_entity(ec, False))
-                    if errors:
-                        for e in errors:
-                            st.error(e)
-                    else:
-                        try:
-                            with st.spinner('Updating details...'):
-                                save_brand(org_id, edited_brand, existing_id=b_id)
-                                for ec in edited_comps_list:
-                                    if ec.get('is_new'):
-                                        save_competitor(b_id, ec)
-                                    else:
-                                        save_competitor(b_id, ec, existing_id=ec['id'])
-                            st.success('Updated successfully!')
-                            time.sleep(1)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f'Update failed: {e}')
-                st.markdown('---')
-                csv_data = generate_brand_csv(selected_org_name, edited_brand, edited_comps_list)
-                st.download_button('📥 Download CSV', csv_data, f'{selected_org_name}_{b_name}.csv', 'text/csv')
 
 @st.cache_data(ttl=60)
 def get_all_competitors():
@@ -450,8 +629,16 @@ def generate_export_df(org_name, brands_data, comps_df):
         b_row['Organization'] = org_name
         b_row['Type'] = 'Brand'
         b_row['Parent Brand'] = brand['name']
+        
+        # Include Status and Date
+        b_row['Status'] = brand.get('status', 'Pending')
+        b_row['Updated Date'] = brand.get('updated_date', '')
+        
         socials = b_row.pop('social_links', {})
         access = b_row.pop('access', {})
+        b_row.pop('status', None)
+        b_row.pop('updated_date', None)
+        
         combined = {**b_row, **socials, **access}
         rows.append(combined)
         b_id = brand['id']
@@ -470,7 +657,7 @@ def generate_export_df(org_name, brands_data, comps_df):
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
-    priority = ['Organization', 'Type', 'Parent Brand', 'name', 'website_url', 'google_trends']
+    priority = ['Organization', 'Type', 'Parent Brand', 'name', 'Status', 'Updated Date', 'website_url', 'google_trends']
     cols = [c for c in df.columns if c in priority] + [c for c in df.columns if c not in priority]
     params = []
     seen = set()
@@ -518,8 +705,15 @@ def generate_brand_csv(org_name, brand, comps_list_of_dicts):
     b_row['Organization'] = org_name
     b_row['Type'] = 'Brand'
     b_row['Parent Brand'] = brand['name']
+    
+    b_row['Status'] = brand.get('status', 'Pending')
+    b_row['Updated Date'] = brand.get('updated_date', '')
+    
     soc = b_row.pop('social_links', {})
     acc = b_row.pop('access', {})
+    b_row.pop('status', None)
+    b_row.pop('updated_date', None)
+    
     rows.append({**b_row, **soc, **acc})
     for c in comps_list_of_dicts:
         c_row = c.copy()
@@ -532,5 +726,6 @@ def generate_brand_csv(org_name, brand, comps_list_of_dicts):
         rows.append({**c_row, **c_soc})
     df = pd.DataFrame(rows)
     return df.to_csv(index=False).encode('utf-8')
+
 if __name__ == '__main__':
     main()
