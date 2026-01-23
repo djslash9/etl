@@ -6,7 +6,7 @@ import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title='Client Onboarding Portal', page_icon='✨', layout='wide')
-st.markdown('\n<style>\n    @import url(\'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap\');\n\n    html, body, [class*="css"] {\n        font-family: \'Plus Jakarta Sans\', sans-serif;\n        color: #1a1a1a;\n    }\n\n    .block-container {\n        padding-top: 2rem;\n        padding-bottom: 5rem;\n    }\n\n    h1, h2, h3 {\n        font-weight: 700;\n        letter-spacing: -0.5px;\n    }\n    \n    h1 {\n        background: linear-gradient(120deg, #2563eb, #7c3aed);\n        -webkit-background-clip: text;\n        -webkit-text-fill-color: transparent;\n        font-size: 3rem !important;\n        padding-bottom: 1rem;\n    }\n\n    .stCard {\n        background-color: #ffffff;\n        padding: 2rem;\n        border-radius: 16px;\n        box-shadow: 0 4px 20px rgba(0,0,0,0.05);\n        border: 1px solid #f0f0f0;\n        margin-bottom: 20px;\n    }\n\n    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input, .stTextArea textarea {\n        border-radius: 12px;\n        border: 1px solid #e2e8f0;\n        padding: 12px;\n        font-size: 1rem;\n    }\n    \n    .stButton button {\n        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);\n        color: white;\n        border: none;\n        padding: 0.75rem 2rem;\n        border-radius: 12px;\n        font-weight: 600;\n        letter-spacing: 0.5px;\n        transition: all 0.3s ease;\n        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);\n        width: 100%;\n    }\n    .stButton button:hover {\n        opacity: 0.9;\n        transform: translateY(-1px);\n        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);\n    }\n    \n    .streamlit-expanderHeader {\n        background-color: #f8fafc;\n        border-radius: 12px;\n        padding: 1rem;\n        font-weight: 600;\n        border: 1px solid #e2e8f0;\n    }\n\n    .info-box {\n        background: #eff6ff;\n        border: 1px solid #dbeafe;\n        color: #1e40af;\n        padding: 1rem;\n        border-radius: 12px;\n        margin-bottom: 1rem;\n    }\n\n</style>\n', unsafe_allow_html=True)
+st.markdown('\n<style>\n    @import url(\'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap\');\n\n    html, body, [class*="css"] {\n        font-family: \'Plus Jakarta Sans\', sans-serif;\n        /* color: #1a1a1a; Removed manual color */\n    }\n\n    .block-container {\n        padding-top: 2rem;\n        padding-bottom: 5rem;\n    }\n\n    h1, h2, h3 {\n        font-weight: 700;\n        letter-spacing: -0.5px;\n    }\n    \n    /* H1 default color restored\n    h1 {\n        background: linear-gradient(120deg, #2563eb, #7c3aed);\n        -webkit-background-clip: text;\n        -webkit-text-fill-color: transparent;\n        font-size: 3rem !important;\n        padding-bottom: 1rem;\n    }\n    */\n\n    .stCard {\n        background-color: #ffffff;\n        padding: 2rem;\n        border-radius: 16px;\n        box-shadow: 0 4px 20px rgba(0,0,0,0.05);\n        border: 1px solid #f0f0f0;\n        margin-bottom: 20px;\n    }\n\n    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input, .stTextArea textarea {\n        border-radius: 12px;\n        border: 1px solid #e2e8f0;\n        padding: 12px;\n        font-size: 1rem;\n    }\n    \n    /* Button defaults restored\n    .stButton button {\n        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);\n        color: white;\n        border: none;\n        padding: 0.75rem 2rem;\n        border-radius: 12px;\n        font-weight: 600;\n        letter-spacing: 0.5px;\n        transition: all 0.3s ease;\n        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);\n        width: 100%;\n    }\n    .stButton button:hover {\n        opacity: 0.9;\n        transform: translateY(-1px);\n        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);\n    }\n    */\n    \n    .streamlit-expanderHeader {\n        background-color: #f8fafc;\n        border-radius: 12px;\n        padding: 1rem;\n        font-weight: 600;\n        border: 1px solid #e2e8f0;\n    }\n\n    .info-box {\n        background: #eff6ff;\n        border: 1px solid #dbeafe;\n        color: #1e40af;\n        padding: 1rem;\n        border-radius: 12px;\n        margin-bottom: 1rem;\n    }\n\n</style>\n', unsafe_allow_html=True)
 SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 CREDS_FILE = 'json/co.json'
 CREDS_FILE = 'json/co.json'
@@ -17,6 +17,7 @@ except:
     SHEET_ID = '1avuWNfqfLykbvgtGCP52hif9nF4TqXAm5Q21Im8thps' # Fallback for now, or local dev without secrets entry
 CONST_BRAND_HEADERS = ['brand_id', 'org_id', 'name', 'Status', 'Updated_Date', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL', 'Google_Trends', 'Meta_Access', 'Meta_Access_Details', 'Meta_Ads_Access', 'Meta_Ads_Access_Details', 'GA_Access', 'GA_Access_Details', 'GAds_Access', 'GAds_Access_Details', 'LinkedIn_Access', 'LinkedIn_Access_Details', 'TikTok_Access', 'TikTok_Access_Details']
 CONST_COMP_HEADERS = ['comp_id', 'brand_id', 'name', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL']
+CONST_DB_BUSY_MSG = "Database is busy right now, please try again shortly. Sorry for the inconvenience"
 
 @st.cache_resource
 def get_sheet():
@@ -57,7 +58,7 @@ def get_sheet():
                 client = gspread.authorize(creds)
                 return client.open_by_key(SHEET_ID)
             except Exception as e:
-                st.error(f"Secrets Error (Root): {e}")
+                st.warning(CONST_DB_BUSY_MSG)
                 st.stop()
     except Exception:
         pass
@@ -70,7 +71,7 @@ def get_sheet():
     except Exception as e:
         # Only show error if BOTH methods failed and we are not just missing the local file on cloud
         # If on cloud, st.secrets attempt would have already run.
-        st.error(f"Authentication Failed: {e}")
+        st.warning(CONST_DB_BUSY_MSG)
         st.stop()
 
 @st.cache_resource
@@ -271,9 +272,11 @@ def render_access_inputs(label_prefix, key_prefix, current_data=None):
     current_det = current_data.get(key_details, '')
     with col1:
         idx = 1 if current_val == 'Yes' else 0
-        access_val = st.selectbox(f'Access', ['No', 'Yes'], index=idx, key=f'{key_prefix}_bool', label_visibility='collapsed')
+        access_val = st.selectbox(f'Access', ['No', 'Yes'], index=idx, key=f'{key_prefix}_bool')
     with col2:
-        details_val = st.text_input(f'Details', value=current_det, placeholder='Required if Yes...', key=f'{key_prefix}_details', label_visibility='collapsed')
+        details_val = st.text_input(f'Details', value=current_det, placeholder='Access given person or link. Type details', key=f'{key_prefix}_details')
+        if access_val == 'Yes' and not details_val.strip():
+            st.warning('⚠️ Details required')
     return {key_access: access_val, key_details: details_val}
 
 def render_social_inputs(key_prefix, current_soc=None):
@@ -348,7 +351,7 @@ def main():
     try:
         init_db()
     except Exception as e:
-        st.error(f'Connection Error: {e}')
+        st.warning(CONST_DB_BUSY_MSG)
         return
         
     set_custom_style()
@@ -469,7 +472,7 @@ def render_brand_creation_form(org_id, org_name, is_new_org=False):
             time.sleep(2)
             st.rerun()
         except Exception as e:
-            st.error(f'Error saving: {e}')
+            st.warning(CONST_DB_BUSY_MSG)
 
 def render_status_page():
     st.markdown('<h1>Status Manager</h1>', unsafe_allow_html=True)
@@ -536,7 +539,7 @@ def render_status_page():
                         time.sleep(1)
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Failed: {e}")
+                        st.warning(CONST_DB_BUSY_MSG)
                 
                 st.divider()
                 st.divider()
@@ -611,7 +614,7 @@ def render_manage_edit():
                                 time.sleep(1)
                                 st.rerun()
                             except Exception as e:
-                                st.error(f'Update failed: {e}')
+                                st.warning(CONST_DB_BUSY_MSG)
                     st.markdown('---')
                     csv_data = generate_brand_csv(selected_org_name, edited_brand, edited_comps_list)
                     st.download_button('📥 Download CSV', csv_data, f'{selected_org_name}_{b_name}.csv', 'text/csv')
