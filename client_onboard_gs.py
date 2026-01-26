@@ -159,6 +159,11 @@ def with_retry(func):
 
 @with_retry
 def save_organization(name):
+    # Check if exists first to prevent duplicate
+    existing_id = check_org_exists(name)
+    if existing_id:
+        return existing_id
+
     sheet = get_sheet()
     ws = sheet.worksheet('Organizations')
     new_id = get_next_id(ws)
@@ -189,6 +194,11 @@ def transform_comp_row(comp_id, brand_id, data):
 def save_brand(org_id, brand_data, existing_id=None):
     sheet = get_sheet()
     ws = sheet.worksheet('Brands')
+    
+    # Logic change: Check for existence if not explicitly updating an existing_id
+    if not existing_id:
+        existing_id = check_brand_exists(org_id, brand_data['name'])
+        
     if existing_id:
         cell = ws.find(str(existing_id), in_column=1)
         if cell:
@@ -217,6 +227,26 @@ def save_competitor(brand_id, comp_data, existing_id=None):
         new_id = get_next_id(ws)
         row_data = transform_comp_row(new_id, brand_id, comp_data)
         ws.append_row(row_data)
+
+@with_retry
+def delete_org_record(org_id):
+    sheet = get_sheet()
+    ws = sheet.worksheet('Organizations')
+    cell = ws.find(str(org_id), in_column=1)
+    if cell:
+        ws.delete_rows(cell.row)
+        return True
+    return False
+
+@with_retry
+def delete_brand_record(brand_id):
+    sheet = get_sheet()
+    ws = sheet.worksheet('Brands')
+    cell = ws.find(str(brand_id), in_column=1)
+    if cell:
+        ws.delete_rows(cell.row)
+        return True
+    return False
 
 @st.cache_data(ttl=60)
 def get_all_organizations():
@@ -261,13 +291,18 @@ def get_full_brand_details(brand_id):
     my_comps = [c for c in all_comps if str(c.get('brand_id')) == str(brand_id)]
     return [row_to_comp_dict(c) for c in my_comps]
 
-def render_access_inputs(label_prefix, key_prefix, current_data=None):
+def render_access_inputs(label_prefix, key_prefix, current_data=None, db_key_base=None):
     if current_data is None:
         current_data = {}
     st.markdown(f'**{label_prefix}**')
     col1, col2 = st.columns([1, 4])
-    key_access = f'{label_prefix}_Access'
-    key_details = f'{label_prefix}_Access_Details'
+    
+    # Use db_key_base if provided for data lookup/storage, else fallback to label logic (riskier)
+    base_key = db_key_base if db_key_base else label_prefix.replace(' ', '_')
+    
+    key_access = f'{base_key}_Access'
+    key_details = f'{base_key}_Access_Details'
+    
     current_val = current_data.get(key_access, 'No')
     current_det = current_data.get(key_details, '')
     with col1:
@@ -291,7 +326,7 @@ def render_social_inputs(key_prefix, current_soc=None):
             links[p] = st.text_input(p, value=val, placeholder=f'{p} URL', key=f'{key_prefix}_{p}')
     return links
 
-def render_entity_form(prefix, default_data=None, is_brand=True):
+def render_entity_form(prefix, default_data=None, is_brand=True, check_org_id=None):
     if not default_data:
         default_data = {}
         
@@ -301,6 +336,14 @@ def render_entity_form(prefix, default_data=None, is_brand=True):
     if is_brand:
         # Single Column for Brand Name (Status removed)
         name_val = st.text_input("Brand Name", value=default_data.get('name', ''), key=f'{prefix}_name')
+        
+        # Immediate Duplicate Check Logic
+        if check_org_id and name_val:
+            dup_id = check_brand_exists(check_org_id, name_val)
+            if dup_id:
+                st.warning(f"⚠️ Brand **'{name_val}'** already exists for this organization (ID: {dup_id}). Please go to **Manage / Edit** to update it.")
+                return {'name': name_val, 'exists': True}
+                
     else:
         name_val = st.text_input("Competitor Name", value=default_data.get('name', ''), key=f'{prefix}_name')
 
@@ -321,12 +364,14 @@ def render_entity_form(prefix, default_data=None, is_brand=True):
             label = p.replace('_', ' ')
             if p == 'GA': label = 'Google Analytics'
             if p == 'GAds': label = 'Google Ads'
-            chunk = render_access_inputs(label, f'{prefix}_{p}', def_acc)
+            # Pass 'p' as db_key_base to ensure keys match CONST_BRAND_HEADERS (e.g. Meta_Ads_Access)
+            chunk = render_access_inputs(label, f'{prefix}_{p}', def_acc, db_key_base=p)
             access_data.update(chunk)
             
     return {
         'name': name_val,
-        'social_links': socials, 'website_url': website, 'google_trends': google_trends, 'access': access_data
+        'social_links': socials, 'website_url': website, 'google_trends': google_trends, 'access': access_data,
+        'exists': False
     }
 
 def validate_entity(data, is_brand=True):
@@ -360,7 +405,7 @@ def main():
     except:
         st.sidebar.warning('Logo not found (logo.png)')
     st.sidebar.title('🚀 Onboarding')
-    page = st.sidebar.radio('Navigate', ['New Client', 'Export Data', 'Manage / Edit', 'Status Manager'])
+    page = st.sidebar.radio('Navigate', ['New Client', 'Export Data', 'Manage / Edit', 'Status Manager', 'Delete Org/ Brand'])
     if page == 'New Client':
         render_new_client_flow()
     elif page == 'Export Data':
@@ -369,6 +414,126 @@ def main():
         render_manage_edit()
     elif page == 'Status Manager':
         render_status_page()
+    elif page == 'Delete Org/ Brand':
+        render_delete_page()
+
+def render_delete_page():
+    st.markdown('<h1>Delete Org / Brand</h1>', unsafe_allow_html=True)
+    st.warning("⚠️ Deletion is permanent. Please double check IDs before proceeding.")
+    
+    # ID Lookup Section
+    with st.expander("🔍 Lookup IDs (Optional)", expanded=False):
+        st.info("Select an Organization (and Brand) to find their IDs.")
+        df_orgs = get_all_organizations()
+        if not df_orgs.empty:
+            sel_org = st.selectbox("Select Organization", [""] + df_orgs['name'].tolist(), key='del_lookup_org')
+            if sel_org:
+                org_row = df_orgs[df_orgs['name'] == sel_org].iloc[0]
+                lu_org_id = org_row['org_id']
+                st.code(f"{lu_org_id}", language="text")
+                st.caption("Copy this Organization ID above if you want to delete it.")
+                
+                # Load brands
+                brands = get_org_brands(lu_org_id)
+                if brands:
+                    brand_names = [b['name'] for b in brands]
+                    sel_brand = st.selectbox("Select Brand", [""] + brand_names, key='del_lookup_brand')
+                    if sel_brand:
+                        # Find brand ID
+                        for b in brands:
+                            if b['name'] == sel_brand:
+                                lu_brand_id = b['brand_id'] or b['id'] # Handle both key styles if any mix
+                                st.code(f"{lu_brand_id}", language="text")
+                                st.caption("Copy this Brand ID above if you want to delete it.")
+                                break
+                else:
+                    st.warning("No brands found for this organization.")
+    
+    st.divider()
+
+    col1, col2 = st.columns(2)
+    with col1:
+        org_id_in = st.text_input("Organization ID", placeholder="Enter ID to delete Org").strip()
+    with col2:
+        brand_id_in = st.text_input("Brand ID", placeholder="Enter ID to delete Brand").strip()
+        
+    if st.button("Check for Deletion"):
+        st.session_state['del_checked'] = True
+        st.session_state['del_org_id'] = org_id_in
+        st.session_state['del_brand_id'] = brand_id_in
+        
+    if st.session_state.get('del_checked'):
+        d_org = st.session_state.get('del_org_id')
+        d_brand = st.session_state.get('del_brand_id')
+        
+        # Display Details logic
+        found_something = False
+        
+        # Case 1: Brand ID provided (Highest priority or combined)
+        target_brand_name = None
+        target_org_name_for_brand = None
+        
+        if d_brand:
+            try:
+                sheet = get_sheet()
+                ws_brand = sheet.worksheet('Brands')
+                cell = ws_brand.find(str(d_brand), in_column=1)
+                if cell:
+                    b_row = ws_brand.row_values(cell.row)
+                    # Headers: brand_id, org_id, name, ...
+                    # Assuming standard headers or just safe get by index
+                    if len(b_row) > 2:
+                        target_brand_name = b_row[2] # Name
+                        linked_org_id = b_row[1]
+                        target_org_name_for_brand = get_org_name(linked_org_id)
+                        
+                    st.info(f"🏷️ **Brand Found**: '{target_brand_name}' (ID: {d_brand}) belonging to Org: '{target_org_name_for_brand}'")
+                    found_something = True
+                else:
+                    st.error(f"❌ Brand ID {d_brand} not found.")
+            except Exception as e:
+                st.warning(CONST_DB_BUSY_MSG)
+
+        # Case 2: Org ID provided
+        target_org_name = None
+        if d_org:
+            try:
+                target_org_name = get_org_name(d_org)
+                if target_org_name != 'Unknown':
+                    st.info(f"🏢 **Organization Found**: '{target_org_name}' (ID: {d_org})")
+                    found_something = True
+                    # Optional: warn about linked brands? User didn't ask, but good to know
+                else:
+                    st.error(f"❌ Organization ID {d_org} not found.")
+            except Exception as e:
+                st.warning(CONST_DB_BUSY_MSG)
+                
+        if found_something:
+            st.markdown("### confirm Deletion")
+            st.write("Are you sure you want to delete the identified records above?")
+            if st.button("🗑️ Permanent Delete", type="primary"):
+                try:
+                    success_msgs = []
+                    if d_brand and target_brand_name:
+                        if delete_brand_record(d_brand):
+                            success_msgs.append(f"Brand '{target_brand_name}' (ID: {d_brand}) deleted.")
+                    
+                    if d_org and target_org_name and target_org_name != 'Unknown':
+                        if delete_org_record(d_org):
+                            success_msgs.append(f"Organization '{target_org_name}' (ID: {d_org}) deleted.")
+                            
+                    if success_msgs:
+                        for m in success_msgs:
+                            st.success(m)
+                        # Clear state
+                        st.session_state['del_checked'] = False
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.error("Deletion failed or records no longer exist.")
+                        
+                except Exception as e:
+                    st.warning(CONST_DB_BUSY_MSG)
 
 def render_new_client_flow():
     st.markdown('<h1>New Client Onboarding</h1>', unsafe_allow_html=True)
@@ -433,7 +598,14 @@ def render_new_client_flow():
         st.rerun()
 
 def render_brand_creation_form(org_id, org_name, is_new_org=False):
-    b_data = render_entity_form('new_brand', is_brand=True)
+    # Pass org_id for check if it's an existing org
+    check_id = org_id if not is_new_org else None
+    b_data = render_entity_form('new_brand', is_brand=True, check_org_id=check_id)
+    
+    # If brand exists, stop rendering
+    if b_data.get('exists'):
+        return
+
     st.markdown('### Competitors (Optional)')
     num_comps = st.number_input('Number of Competitors', 0, 10, 0)
     comps_payload = []
