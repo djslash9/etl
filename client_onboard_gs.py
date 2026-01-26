@@ -6,15 +6,14 @@ import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title='Client Onboarding Portal', page_icon='✨', layout='wide')
-st.markdown('\n<style>\n    @import url(\'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap\');\n\n    html, body, [class*="css"] {\n        font-family: \'Plus Jakarta Sans\', sans-serif;\n        /* color: #1a1a1a; Removed manual color */\n    }\n\n    .block-container {\n        padding-top: 2rem;\n        padding-bottom: 5rem;\n    }\n\n    h1, h2, h3 {\n        font-weight: 700;\n        letter-spacing: -0.5px;\n    }\n    \n    /* H1 default color restored\n    h1 {\n        background: linear-gradient(120deg, #2563eb, #7c3aed);\n        -webkit-background-clip: text;\n        -webkit-text-fill-color: transparent;\n        font-size: 3rem !important;\n        padding-bottom: 1rem;\n    }\n    */\n\n    .stCard {\n        background-color: #ffffff;\n        padding: 2rem;\n        border-radius: 16px;\n        box-shadow: 0 4px 20px rgba(0,0,0,0.05);\n        border: 1px solid #f0f0f0;\n        margin-bottom: 20px;\n    }\n\n    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input, .stTextArea textarea {\n        border-radius: 12px;\n        border: 1px solid #e2e8f0;\n        padding: 12px;\n        font-size: 1rem;\n    }\n    \n    /* Button defaults restored\n    .stButton button {\n        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);\n        color: white;\n        border: none;\n        padding: 0.75rem 2rem;\n        border-radius: 12px;\n        font-weight: 600;\n        letter-spacing: 0.5px;\n        transition: all 0.3s ease;\n        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);\n        width: 100%;\n    }\n    .stButton button:hover {\n        opacity: 0.9;\n        transform: translateY(-1px);\n        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);\n    }\n    */\n    \n    .streamlit-expanderHeader {\n        background-color: #f8fafc;\n        border-radius: 12px;\n        padding: 1rem;\n        font-weight: 600;\n        border: 1px solid #e2e8f0;\n    }\n\n    .info-box {\n        background: #eff6ff;\n        border: 1px solid #dbeafe;\n        color: #1e40af;\n        padding: 1rem;\n        border-radius: 12px;\n        margin-bottom: 1rem;\n    }\n\n    /* Hide Streamlit Cloud UI elements */\n    [data-testid="stToolbar"] {\n        display: none !important;\n    }\n    [data-testid="stDecoration"] {\n        display: none !important;\n    }\n    .stDeployButton {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    div[data-testid="stStatusWidget"] {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    #MainMenu {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    footer {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    header {\n        background: transparent !important;\n    }\n    /* Specific selector for Hosted with Streamlit */\n    .viewerBadge_container__1QSob {\n        display: none !important;\n    }\n    /* General footer catch-all */\n    [data-testid="stFooter"] {\n        display: none !important;\n    }\n\n</style>\n', unsafe_allow_html=True)
+st.markdown('\n<style>\n    @import url(\'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap\');\n\n    html, body, [class*="css"] {\n        font-family: \'Plus Jakarta Sans\', sans-serif;\n    }\n\n    .block-container {\n        padding-top: 2rem;\n        padding-bottom: 5rem;\n    }\n\n    h1, h2, h3 {\n        font-weight: 700;\n        letter-spacing: -0.5px;\n    }\n    \n    .stCard {\n        background-color: #ffffff;\n        padding: 2rem;\n        border-radius: 16px;\n        box-shadow: 0 4px 20px rgba(0,0,0,0.05);\n        border: 1px solid #f0f0f0;\n        margin-bottom: 20px;\n    }\n\n    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input, .stTextArea textarea {\n        border-radius: 12px;\n        border: 1px solid #e2e8f0;\n        padding: 12px;\n        font-size: 1rem;\n    }\n    \n    .streamlit-expanderHeader {\n        background-color: #f8fafc;\n        border-radius: 12px;\n        padding: 1rem;\n        font-weight: 600;\n        border: 1px solid #e2e8f0;\n    }\n\n    .info-box {\n        background: #eff6ff;\n        border: 1px solid #dbeafe;\n        color: #1e40af;\n        padding: 1rem;\n        border-radius: 12px;\n        margin-bottom: 1rem;\n    }\n\n    /* Hide Streamlit Cloud UI elements */\n    [data-testid="stToolbar"] {\n        display: none !important;\n    }\n    [data-testid="stDecoration"] {\n        display: none !important;\n    }\n    .stDeployButton {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    div[data-testid="stStatusWidget"] {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    #MainMenu {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    footer {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    header {\n        background: transparent !important;\n    }\n    /* Specific selector for Hosted with Streamlit */\n    .viewerBadge_container__1QSob {\n        display: none !important;\n    }\n    /* General footer catch-all */\n    [data-testid="stFooter"] {\n        display: none !important;\n    }\n\n</style>\n', unsafe_allow_html=True)
 SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 CREDS_FILE = 'json/co.json'
 CREDS_FILE = 'json/co.json'
-# Try to get SHEET_ID from secrets, otherwise fallback (or fail if critical)
 try:
     SHEET_ID = st.secrets["sheet_id"]
 except:
-    SHEET_ID = '1avuWNfqfLykbvgtGCP52hif9nF4TqXAm5Q21Im8thps' # Fallback for now, or local dev without secrets entry
+    SHEET_ID = '1avuWNfqfLykbvgtGCP52hif9nF4TqXAm5Q21Im8thps'
 CONST_BRAND_HEADERS = ['brand_id', 'org_id', 'name', 'Status', 'Updated_Date', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL', 'Google_Trends', 'Meta_Access', 'Meta_Access_Details', 'Meta_Ads_Access', 'Meta_Ads_Access_Details', 'GA_Access', 'GA_Access_Details', 'GAds_Access', 'GAds_Access_Details', 'LinkedIn_Access', 'LinkedIn_Access_Details', 'TikTok_Access', 'TikTok_Access_Details']
 CONST_COMP_HEADERS = ['comp_id', 'brand_id', 'name', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL']
 CONST_DB_BUSY_MSG = "Database is busy right now, please try again shortly. Sorry for the inconvenience"
@@ -23,8 +22,6 @@ CONST_DB_BUSY_MSG = "Database is busy right now, please try again shortly. Sorry
 def get_sheet():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     
-    # Priority 1: Local File (Local Development)
-    # We check this FIRST to avoid 'No secrets found' error from st.secrets if running locally with co.json
     if os.path.exists(CREDS_FILE):
         try:
             creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, scope)
@@ -34,9 +31,7 @@ def get_sheet():
             # If local file exists but fails, log it and fall through to secrets
             print(f"Local auth failed: {e}")
 
-    # Priority 2: Secrets (Cloud / Deployment)
     try:
-        # Wrap the check itself in try-except because simply accessing st.secrets might raise error if missing
         try:
             secrets = st.secrets
         except Exception:
@@ -63,14 +58,11 @@ def get_sheet():
     except Exception:
         pass
 
-    # Case C: Fallback to Local File (Local Development)
     try:
         creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, scope)
         client = gspread.authorize(creds)
         return client.open_by_key(SHEET_ID)
     except Exception as e:
-        # Only show error if BOTH methods failed and we are not just missing the local file on cloud
-        # If on cloud, st.secrets attempt would have already run.
         st.warning(CONST_DB_BUSY_MSG)
         st.stop()
 
@@ -86,7 +78,6 @@ def init_db():
         ws_org.append_row(['org_id', 'name'])
     try:
         ws_brands = sheet.worksheet('Brands')
-        # Update headers to include new fields
         ws_brands.update(range_name='A1:Y1', values=[CONST_BRAND_HEADERS])
     except gspread.WorksheetNotFound:
         ws_brands = sheet.add_worksheet(title='Brands', rows=100, cols=26)
@@ -159,7 +150,6 @@ def with_retry(func):
 
 @with_retry
 def save_organization(name):
-    # Check if exists first to prevent duplicate
     existing_id = check_org_exists(name)
     if existing_id:
         return existing_id
@@ -195,7 +185,6 @@ def save_brand(org_id, brand_data, existing_id=None):
     sheet = get_sheet()
     ws = sheet.worksheet('Brands')
     
-    # Logic change: Check for existence if not explicitly updating an existing_id
     if not existing_id:
         existing_id = check_brand_exists(org_id, brand_data['name'])
         
@@ -203,7 +192,6 @@ def save_brand(org_id, brand_data, existing_id=None):
         cell = ws.find(str(existing_id), in_column=1)
         if cell:
             row_data = transform_brand_row(existing_id, org_id, brand_data)
-            # Update range A:Y for all cols including status/date
             cell_range = f'A{cell.row}:Y{cell.row}'
             ws.update(range_name=cell_range, values=[row_data])
             return existing_id
@@ -297,7 +285,6 @@ def render_access_inputs(label_prefix, key_prefix, current_data=None, db_key_bas
     st.markdown(f'**{label_prefix}**')
     col1, col2 = st.columns([1, 4])
     
-    # Use db_key_base if provided for data lookup/storage, else fallback to label logic (riskier)
     base_key = db_key_base if db_key_base else label_prefix.replace(' ', '_')
     
     key_access = f'{base_key}_Access'
@@ -337,7 +324,6 @@ def render_entity_form(prefix, default_data=None, is_brand=True, check_org_id=No
         # Single Column for Brand Name (Status removed)
         name_val = st.text_input("Brand Name", value=default_data.get('name', ''), key=f'{prefix}_name')
         
-        # Immediate Duplicate Check Logic
         if check_org_id and name_val:
             dup_id = check_brand_exists(check_org_id, name_val)
             if dup_id:
@@ -364,7 +350,6 @@ def render_entity_form(prefix, default_data=None, is_brand=True, check_org_id=No
             label = p.replace('_', ' ')
             if p == 'GA': label = 'Google Analytics'
             if p == 'GAds': label = 'Google Ads'
-            # Pass 'p' as db_key_base to ensure keys match CONST_BRAND_HEADERS (e.g. Meta_Ads_Access)
             chunk = render_access_inputs(label, f'{prefix}_{p}', def_acc, db_key_base=p)
             access_data.update(chunk)
             
@@ -374,10 +359,12 @@ def render_entity_form(prefix, default_data=None, is_brand=True, check_org_id=No
         'exists': False
     }
 
-def validate_entity(data, is_brand=True):
+def validate_entity(data, is_brand=True, context_label=None):
     errors = []
+    prefix = f"{context_label}: " if context_label else ""
+    
     if not data['name']:
-        errors.append('Name is required.')
+        errors.append(f'{prefix}Name is required.')
     if is_brand:
         acc = data['access']
         for key, val in acc.items():
@@ -386,7 +373,7 @@ def validate_entity(data, is_brand=True):
                 det_val = acc.get(det_key, '')
                 if not det_val.strip():
                     friendly_name = key.replace('_Access', '')
-                    errors.append(f'{friendly_name}: Details cannot be blank if Access is Yes.')
+                    errors.append(f'{prefix}{friendly_name}: Details cannot be blank if Access is Yes.')
     return errors
 
 def set_custom_style():
@@ -417,11 +404,9 @@ def main():
     elif page == 'Delete Org/ Brand':
         render_delete_page()
 
-def render_delete_page():
     st.markdown('<h1>Delete Org / Brand</h1>', unsafe_allow_html=True)
     st.warning("⚠️ Deletion is permanent. Please double check IDs before proceeding.")
     
-    # ID Lookup Section
     with st.expander("🔍 Lookup IDs (Optional)", expanded=False):
         st.info("Select an Organization (and Brand) to find their IDs.")
         df_orgs = get_all_organizations()
@@ -433,16 +418,14 @@ def render_delete_page():
                 st.code(f"{lu_org_id}", language="text")
                 st.caption("Copy this Organization ID above if you want to delete it.")
                 
-                # Load brands
                 brands = get_org_brands(lu_org_id)
                 if brands:
                     brand_names = [b['name'] for b in brands]
                     sel_brand = st.selectbox("Select Brand", [""] + brand_names, key='del_lookup_brand')
                     if sel_brand:
-                        # Find brand ID
                         for b in brands:
                             if b['name'] == sel_brand:
-                                lu_brand_id = b['brand_id'] or b['id'] # Handle both key styles if any mix
+                                lu_brand_id = b['brand_id'] or b['id']
                                 st.code(f"{lu_brand_id}", language="text")
                                 st.caption("Copy this Brand ID above if you want to delete it.")
                                 break
@@ -466,10 +449,8 @@ def render_delete_page():
         d_org = st.session_state.get('del_org_id')
         d_brand = st.session_state.get('del_brand_id')
         
-        # Display Details logic
         found_something = False
         
-        # Case 1: Brand ID provided (Highest priority or combined)
         target_brand_name = None
         target_org_name_for_brand = None
         
@@ -480,8 +461,6 @@ def render_delete_page():
                 cell = ws_brand.find(str(d_brand), in_column=1)
                 if cell:
                     b_row = ws_brand.row_values(cell.row)
-                    # Headers: brand_id, org_id, name, ...
-                    # Assuming standard headers or just safe get by index
                     if len(b_row) > 2:
                         target_brand_name = b_row[2] # Name
                         linked_org_id = b_row[1]
@@ -494,7 +473,6 @@ def render_delete_page():
             except Exception as e:
                 st.warning(CONST_DB_BUSY_MSG)
 
-        # Case 2: Org ID provided
         target_org_name = None
         if d_org:
             try:
@@ -502,7 +480,6 @@ def render_delete_page():
                 if target_org_name != 'Unknown':
                     st.info(f"🏢 **Organization Found**: '{target_org_name}' (ID: {d_org})")
                     found_something = True
-                    # Optional: warn about linked brands? User didn't ask, but good to know
                 else:
                     st.error(f"❌ Organization ID {d_org} not found.")
             except Exception as e:
@@ -538,11 +515,9 @@ def render_delete_page():
 def render_new_client_flow():
     st.markdown('<h1>New Client Onboarding</h1>', unsafe_allow_html=True)
     org_name_input = st.text_input('🏢 Enter Organization Name', placeholder='e.g. Acme Corp')
-    # State Management for persistence
     if 'last_input_org' not in st.session_state:
         st.session_state['last_input_org'] = ''
         
-    # If input changed, reset state
     if st.session_state['last_input_org'] != org_name_input:
         st.session_state['last_input_org'] = org_name_input
         # Clear states
@@ -562,11 +537,8 @@ def render_new_client_flow():
                 st.session_state['new_client_mode'] = 'add_brand'
                 st.session_state['target_org_id'] = existing_id
                 st.session_state['target_org_name'] = org_name_input
-            else:
-                st.session_state['new_client_mode'] = 'new_org'
-                st.session_state['target_org_name'] = org_name_input
-
-    # Persistent Render Logic
+        st.session_state['target_org_name'] = org_name_input
+ 
     if st.session_state.get('checked_org_found'):
         existing_id = st.session_state.get('checked_org_id')
         if existing_id:
@@ -598,7 +570,6 @@ def render_new_client_flow():
         st.rerun()
 
 def render_brand_creation_form(org_id, org_name, is_new_org=False):
-    # Pass org_id for check if it's an existing org
     check_id = org_id if not is_new_org else None
     b_data = render_entity_form('new_brand', is_brand=True, check_org_id=check_id)
     
@@ -614,9 +585,9 @@ def render_brand_creation_form(org_id, org_name, is_new_org=False):
         c_data = render_entity_form(f'new_comp_{i}', is_brand=False)
         comps_payload.append(c_data)
     if st.button('💾 Save Brand & Competitors'):
-        errors = validate_entity(b_data, True)
-        for c in comps_payload:
-            errors.extend(validate_entity(c, False))
+        errors = validate_entity(b_data, True, context_label="Brand")
+        for i, c in enumerate(comps_payload):
+            errors.extend(validate_entity(c, False, context_label=f"Competitor {i+1}"))
         if errors:
             for e in errors:
                 st.error(e)
@@ -631,8 +602,7 @@ def render_brand_creation_form(org_id, org_name, is_new_org=False):
             with st.spinner('Saving data...'):
                 if is_new_org:
                     target_org_id = save_organization(org_name)
-                # Ensure status/date preserved or defaulted if not in form
-                # For new brand, defaults are fine.
+
                 full_b_data = b_data.copy()
                 full_b_data['status'] = 'Pending'
                 full_b_data['updated_date'] = ''
@@ -658,7 +628,6 @@ def render_status_page():
         org_row = df_orgs[df_orgs['name'] == selected_org_name].iloc[0]
         org_id = int(org_row['org_id'])
         
-        # Fresh fetch of brands
         with st.spinner('Loading brands...'):
             brand_rows = get_org_brands(org_id)
             
@@ -668,8 +637,6 @@ def render_status_page():
 
         st.markdown(f"### Update Status for **{selected_org_name}**")
         
-        # Create a form-like structure or just direct updates
-        # Using a container for each brand
         for b_row in brand_rows:
             b_data = row_to_brand_dict(b_row)
             b_id = b_data['id']
@@ -680,26 +647,22 @@ def render_status_page():
             with st.container():
                 st.markdown(f"#### {b_name}")
                 
-                # 1. Status
                 new_status = st.selectbox("Status", ["Pending", "Updated Web App"], 
                                         index=0 if curr_status == "Pending" else 1, 
                                         key=f'st_stat_{b_id}')
                 
-                # 2. Date Logic
                 d_val = None
                 if curr_date:
                     try: d_val = pd.to_datetime(curr_date).date()
                     except: pass
                 
-                # Auto-update logic
                 if new_status == "Updated Web App" and curr_status != "Updated Web App":
                         d_val = pd.Timestamp.now().date()
                 elif new_status == "Updated Web App" and not d_val:
                         d_val = pd.Timestamp.now().date()
 
                 new_date = st.date_input("Updated Date", value=d_val, key=f'st_date_{b_id}')
-
-                # 3. Save Button
+                
                 if st.button("Save Status & Date", key=f'save_stat_{b_id}'):
                     try:
                         updated_b_data = b_data.copy()
@@ -759,20 +722,15 @@ def render_manage_edit():
                         new_c_data['is_new'] = True
                         edited_comps_list.append(new_c_data)
                     if st.button(f'Update {selected_org_name} details for {b_name}', key=f'upd_btn_{b_id}'):
-                        errors = validate_entity(edited_brand, True)
-                        for ec in edited_comps_list:
-                            errors.extend(validate_entity(ec, False))
+                        errors = validate_entity(edited_brand, True, context_label="Brand Details")
+                        for i, ec in enumerate(edited_comps_list):
+                            errors.extend(validate_entity(ec, False, context_label=f"Competitor {i+1}"))
                         if errors:
                             for e in errors:
                                 st.error(e)
                         else:
                             try:
                                 with st.spinner('Updating details...'):
-                                    # Merge existing Status/Date into the edited_brand payload so they aren't lost
-                                    # existing_brand_full = row_to_brand_dict(next(r for r in brand_rows if str(r['brand_id']) == str(b_id)))
-                                    # Actually, user provided default_data=brand_dict to render_entity_form
-                                    # but render_entity_form no longer returns status/date.
-                                    # So we must manually re-attach the ORIGINAL status/date to the payload
                                     edited_brand['status'] = brand_dict.get('status', 'Pending')
                                     edited_brand['updated_date'] = brand_dict.get('updated_date', '')
                                     
@@ -810,7 +768,6 @@ def generate_export_df(org_name, brands_data, comps_df):
         b_row['Type'] = 'Brand'
         b_row['Parent Brand'] = brand['name']
         
-        # Include Status and Date
         b_row['Status'] = brand.get('status', 'Pending')
         b_row['Updated Date'] = brand.get('updated_date', '')
         
