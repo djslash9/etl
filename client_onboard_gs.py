@@ -4,6 +4,8 @@ import json
 import time
 import os
 import gspread
+import toml
+
 from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title='Client Onboarding Portal', page_icon='✨', layout='wide')
 st.markdown('\n<style>\n    @import url(\'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap\');\n\n    html, body, [class*="css"] {\n        font-family: \'Plus Jakarta Sans\', sans-serif;\n    }\n\n    .block-container {\n        padding-top: 2rem;\n        padding-bottom: 5rem;\n    }\n\n    h1, h2, h3 {\n        font-weight: 700;\n        letter-spacing: -0.5px;\n    }\n    \n    .stCard {\n        background-color: #ffffff;\n        padding: 2rem;\n        border-radius: 16px;\n        box-shadow: 0 4px 20px rgba(0,0,0,0.05);\n        border: 1px solid #f0f0f0;\n        margin-bottom: 20px;\n    }\n\n    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input, .stTextArea textarea {\n        border-radius: 12px;\n        border: 1px solid #e2e8f0;\n        padding: 12px;\n        font-size: 1rem;\n    }\n    \n    .streamlit-expanderHeader {\n        background-color: #f8fafc;\n        border-radius: 12px;\n        padding: 1rem;\n        font-weight: 600;\n        border: 1px solid #e2e8f0;\n    }\n\n    .info-box {\n        background: #eff6ff;\n        border: 1px solid #dbeafe;\n        color: #1e40af;\n        padding: 1rem;\n        border-radius: 12px;\n        margin-bottom: 1rem;\n    }\n\n    /* Hide Streamlit Cloud UI elements */\n    [data-testid="stToolbar"] {\n        display: none !important;\n    }\n    [data-testid="stDecoration"] {\n        display: none !important;\n    }\n    .stDeployButton {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    div[data-testid="stStatusWidget"] {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    #MainMenu {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    footer {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    header {\n        background: transparent !important;\n    }\n    /* Specific selector for Hosted with Streamlit */\n    .viewerBadge_container__1QSob {\n        display: none !important;\n    }\n    /* General footer catch-all */\n    [data-testid="stFooter"] {\n        display: none !important;\n    }\n\n</style>\n', unsafe_allow_html=True)
@@ -15,9 +17,9 @@ try:
 except:
     SHEET_ID = '1avuWNfqfLykbvgtGCP52hif9nF4TqXAm5Q21Im8thps'
 CONST_ORG_HEADERS = ['org_id', 'name', 'Created_User', 'Created_Date', 'Edited_User', 'Edited_Date']
-CONST_BRAND_HEADERS = ['brand_id', 'org_id', 'name', 'Status', 'Updated_Date', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL', 'Google_Trends', 'Meta_Access', 'Meta_Access_Details', 'Meta_Ads_Access', 'Meta_Ads_Access_Details', 'GA_Access', 'GA_Access_Details', 'GAds_Access', 'GAds_Access_Details', 'LinkedIn_Access', 'LinkedIn_Access_Details', 'TikTok_Access', 'TikTok_Access_Details', 'Created_User', 'Created_Date', 'Edited_User', 'Edited_Date']
+CONST_BRAND_HEADERS = ['brand_id', 'org_id', 'name', 'Status', 'Updated_Date', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL', 'Google_Trends', 'Social_Listening', 'Social_Listening_Keywords', 'Meta_Access', 'Meta_Access_Details', 'Meta_Ads_Access', 'Meta_Ads_Access_Details', 'GA_Access', 'GA_Access_Details', 'GAds_Access', 'GAds_Access_Details', 'LinkedIn_Access', 'LinkedIn_Access_Details', 'TikTok_Access', 'TikTok_Access_Details', 'Created_User', 'Created_Date', 'Edited_User', 'Edited_Date']
 CONST_COMP_HEADERS = ['comp_id', 'brand_id', 'name', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL']
-CONST_USERS_HEADERS = ['username', 'password', 'role']
+
 CONST_DB_BUSY_MSG = "Database is busy right now, please try again shortly. Sorry for the inconvenience"
 def with_retry(func):
     def wrapper(*args, **kwargs):
@@ -78,16 +80,10 @@ def init_db():
     sheet = get_sheet()
     try:
         ws_org = sheet.worksheet('Organizations')
-        # Check for migration
         cur_headers = ws_org.row_values(1)
         if len(cur_headers) < len(CONST_ORG_HEADERS):
-             # Append missing headers
              missing = CONST_ORG_HEADERS[len(cur_headers):]
-             # Update row 1 starting from next col
-             # e.g. if len is 2 (A,B), we start at C1
              start_col_idx = len(cur_headers) + 1
-             # convert 3 -> C. simple enough for small count?
-             # Let's just update the whole header row to be safe
              ws_org.update('A1:F1', [CONST_ORG_HEADERS])
     except gspread.WorksheetNotFound:
         ws_org = sheet.add_worksheet(title='Organizations', rows=100, cols=20)
@@ -96,9 +92,7 @@ def init_db():
         ws_brands = sheet.worksheet('Brands')
         cur_headers = ws_brands.row_values(1)
         if len(cur_headers) < len(CONST_BRAND_HEADERS):
-             # Naive migration: Update whole header row range
-             # A to Z is 26. We now have 29. so A to AC
-             ws_brands.update('A1:AC1', [CONST_BRAND_HEADERS])
+             ws_brands.update('A1:AE1', [CONST_BRAND_HEADERS])
     except gspread.WorksheetNotFound:
         ws_brands = sheet.add_worksheet(title='Brands', rows=100, cols=35)
         ws_brands.append_row(CONST_BRAND_HEADERS)
@@ -108,14 +102,7 @@ def init_db():
     except gspread.WorksheetNotFound:
         ws_comps = sheet.add_worksheet(title='Competitors', rows=100, cols=20)
         ws_comps.append_row(CONST_COMP_HEADERS)
-    try:
-        ws_users = sheet.worksheet('Users')
-        if len(ws_users.row_values(1)) < 3:
-             ws_users.update('A1:C1', [CONST_USERS_HEADERS])
-    except gspread.WorksheetNotFound:
-        ws_users = sheet.add_worksheet(title='Users', rows=50, cols=5)
-        ws_users.append_row(CONST_USERS_HEADERS)
-        ws_users.append_row(['Sisira', '161277', 'Admin'])
+
 def get_next_id(worksheet):
     try:
         col_values = worksheet.col_values(1)
@@ -174,12 +161,10 @@ def save_organization(name):
     sheet = get_sheet()
     ws = sheet.worksheet('Organizations')
     new_id = get_next_id(ws)
-    # [id, name, created_user, created_ts, edited_user, edited_ts]
     ws.append_row([new_id, name, user, ts, user, ts])
     return new_id
     
 def transform_brand_row(brand_id, org_id, data, current_row=None):
-    # current_row is needed to preserve Created_User/Created_Date on edits
     soc = data.get('social_links', {})
     acc = data.get('access', {})
     
@@ -189,17 +174,20 @@ def transform_brand_row(brand_id, org_id, data, current_row=None):
     created_user = user
     created_ts = ts
     
-    if current_row and len(current_row) >= 27:
-        # Existing row: preserve created info
-        # Indexes: ... 25=Created_User, 26=Created_Date
-        created_user = current_row[25]
-        created_ts = current_row[26]
+    if current_row:
+        if len(current_row) >= 31:
+             created_user = current_row[27]
+             created_ts = current_row[28]
+        elif len(current_row) >= 27:
+             created_user = current_row[25]
+             created_ts = current_row[26]
         
     return [
         brand_id, org_id, data.get('name', ''), 
         data.get('status', 'Pending'), data.get('updated_date', ''),
         soc.get('Facebook', ''), soc.get('Instagram', ''), soc.get('Twitter(X)', ''), soc.get('Youtube', ''), soc.get('TikTok', ''), soc.get('LinkedIn', ''), 
         data.get('website_url', ''), data.get('google_trends', ''), 
+        data.get('social_listening', 'False'), data.get('social_listening_keywords', ''),
         acc.get('Meta_Access', 'No'), acc.get('Meta_Access_Details', ''), 
         acc.get('Meta_Ads_Access', 'No'), acc.get('Meta_Ads_Access_Details', ''), 
         acc.get('GA_Access', 'No'), acc.get('GA_Access_Details', ''), 
@@ -220,11 +208,9 @@ def save_brand(org_id, brand_data, existing_id=None):
     if existing_id:
         cell = ws.find(str(existing_id), in_column=1)
         if cell:
-            # Fetch existing to preserve Created fields
             current_vals = ws.row_values(cell.row)
             row_data = transform_brand_row(existing_id, org_id, brand_data, current_vals)
-            # Update range A to AC
-            cell_range = f'A{cell.row}:AC{cell.row}'
+            cell_range = f'A{cell.row}:AE{cell.row}'
             ws.update(range_name=cell_range, values=[row_data])
             return existing_id
     else:
@@ -247,7 +233,6 @@ def save_competitor(brand_id, comp_data, existing_id=None):
         row_data = transform_comp_row(new_id, brand_id, comp_data)
         ws.append_row(row_data)
 def archive_full_context(flat_data_list):
-    # flat_data_list should be a list of lists (rows) to append
     try:
         sheet = get_sheet()
         try:
@@ -263,7 +248,6 @@ def archive_full_context(flat_data_list):
         
         rows_to_add = []
         for item in flat_data_list:
-            # item is expected to be [Entity_Type, Org_ID, Org_Name, Brand_ID, Brand_Name, Comp_ID, Comp_Name, Details_JSON_str]
             row = [ts, f"{user} ({role})"] + item
             rows_to_add.append(row)
             
@@ -279,39 +263,28 @@ def delete_org_record(org_id):
     ws_brand = sheet.worksheet('Brands')
     ws_comp = sheet.worksheet('Competitors')
     
-    # Check Org Exists
     cell = ws_org.find(str(org_id), in_column=1)
     if not cell:
         return False
         
     org_name = ws_org.cell(cell.row, 2).value
     
-    # Gather Data
     to_archive = []
     
-    # 1. Org Data
-    # [Type, OID, OName, BID, BName, CID, CName, Details]
     to_archive.append(['Organization', org_id, org_name, '', '', '', '', ''])
     
-    # 2. Find Brands
     brands_to_delete = [] # list of (row_idx, brand_id, brand_name)
     all_brands = ws_brand.get_all_records(expected_headers=CONST_BRAND_HEADERS)
-    # Re-scan to find rows (get_all_records doesn't give row num easy without recalc)
-    # Actually, simpler to find cells
-    # We'll use the records to find IDs, then batch delete? Or row by row?
-    # Gspread batch delete is tricky. Row by row from bottom up is safest.
     
     brand_cells = ws_brand.findall(str(org_id), in_column=2)
     brand_rows_indices = sorted([c.row for c in brand_cells], reverse=True)
     
     for r_idx in brand_rows_indices:
         b_vals = ws_brand.row_values(r_idx)
-        # Assuming struct: id, org_id, name ...
         b_id = b_vals[0]
         b_name = b_vals[2]
         to_archive.append(['Brand', org_id, org_name, b_id, b_name, '', '', json.dumps(b_vals)])
         
-        # 3. Find Competitors for this Brand
         comp_cells = ws_comp.findall(str(b_id), in_column=2)
         comp_rows_indices = sorted([c.row for c in comp_cells], reverse=True)
         for cr_idx in comp_rows_indices:
@@ -323,11 +296,8 @@ def delete_org_record(org_id):
              
         ws_brand.delete_rows(r_idx)
         
-    # Archive All
     archive_full_context(to_archive)
     
-    # Finally delete Org
-    # Re-find cell as rows might have shifted? No, Org sheet is separate.
     ws_org.delete_rows(cell.row)
     return True
 
@@ -337,7 +307,6 @@ def delete_brand_record(brand_id):
     ws_brand = sheet.worksheet('Brands')
     ws_comp = sheet.worksheet('Competitors')
     
-    # Find Brand
     cell = ws_brand.find(str(brand_id), in_column=1)
     if not cell:
         return False
@@ -351,7 +320,6 @@ def delete_brand_record(brand_id):
     to_archive = []
     to_archive.append(['Brand', org_id, org_name, b_id, b_name, '', '', json.dumps(b_vals)])
     
-    # Find Comps
     comp_cells = ws_comp.findall(str(b_id), in_column=2)
     comp_rows_indices = sorted([c.row for c in comp_cells], reverse=True)
     for cr_idx in comp_rows_indices:
@@ -380,6 +348,8 @@ def row_to_brand_dict(row):
         'updated_date': g('Updated_Date'),
         'website_url': g('Website_URL'), 
         'google_trends': g('Google_Trends'), 
+        'social_listening': g('Social_Listening'),
+        'social_listening_keywords': g('Social_Listening_Keywords'),
         'social_links': {
             'Facebook': g('Facebook_URL'), 'Instagram': g('Instagram_URL'), 'Twitter(X)': g('Twitter_URL'), 
             'Youtube': g('Youtube_URL'), 'TikTok': g('TikTok_URL'), 'LinkedIn': g('LinkedIn_URL')
@@ -453,9 +423,22 @@ def render_entity_form(prefix, default_data=None, is_brand=True, check_org_id=No
     website = st.text_input('Website URL(s)', value=default_data.get('website_url', ''), key=f'{prefix}_web')
     google_trends = ''
     access_data = {}
+    social_listening = 'False'
+    social_listening_keywords = ''
     if is_brand:
         st.markdown('##### 📈 Google Trends')
         google_trends = st.text_area('Google Trends URL/Details', value=default_data.get('google_trends', ''), key=f'{prefix}_gt', height=68)
+        
+        st.markdown('##### 👂 Social Listening')
+        sl_val = default_data.get('social_listening', 'False')
+        sl_bool = True if str(sl_val).lower() == 'true' else False
+        sl_toggle = st.toggle("Social Listening", value=sl_bool, key=f'{prefix}_sl_tog')
+        social_listening = str(sl_toggle)
+        
+        if sl_toggle:
+            st.info("Insert keywords to listen seperated by comma")
+            social_listening_keywords = st.text_area("Keywords", value=default_data.get('social_listening_keywords', ''), key=f'{prefix}_sl_kw', placeholder="Insert keywords to listen seperated by comma")
+
         st.markdown('##### 🔐 Platform Access')
         def_acc = default_data.get('access')
         platforms = ['Meta', 'Meta_Ads', 'GA', 'GAds', 'LinkedIn', 'TikTok']
@@ -467,7 +450,9 @@ def render_entity_form(prefix, default_data=None, is_brand=True, check_org_id=No
             access_data.update(chunk)
     return {
         'name': name_val,
-        'social_links': socials, 'website_url': website, 'google_trends': google_trends, 'access': access_data,
+        'social_links': socials, 'website_url': website, 'google_trends': google_trends, 
+        'social_listening': social_listening, 'social_listening_keywords': social_listening_keywords,
+        'access': access_data,
         'exists': False
     }
 def validate_entity(data, is_brand=True, context_label=None):
@@ -493,6 +478,9 @@ def main():
     except Exception as e:
         st.warning(CONST_DB_BUSY_MSG)
         return
+    
+    # Ensure local secrets.toml has auth structure
+    ensure_admin_exists()
     set_custom_style()
     if 'authenticated' not in st.session_state:
         st.session_state['authenticated'] = False
@@ -535,34 +523,116 @@ def main():
     elif page == 'Delete Org/ Brand':
         render_delete_page()
 @with_retry
-def check_login(username, password):
-    sheet = get_sheet()
+def get_secrets_path():
+    return os.path.join('.streamlit', 'secrets.toml')
+
+def load_toml_secrets():
+    path = get_secrets_path()
+    if not os.path.exists(path):
+        return {}
     try:
-        ws = sheet.worksheet('Users')
-    except:
-        return None 
-    records = ws.get_all_records(expected_headers=CONST_USERS_HEADERS)
-    for r in records:
-        r_user = str(r.get('username', '')).strip()
-        r_pass = str(r.get('password', '')).strip()
-        if r_user == username and r_pass == password:
-            return r.get('role', 'User')
+        with open(path, "r") as f:
+            return toml.load(f)
+    except Exception as e:
+        print(f"Error loading secrets: {e}")
+        return {}
+
+def save_toml_secrets(data):
+    path = get_secrets_path()
+    try:
+        with open(path, "w") as f:
+            toml.dump(data, f)
+        return True
+    except Exception as e:
+        print(f"Error saving secrets: {e}")
+        return False
+
+def ensure_admin_exists():
+    data = load_toml_secrets()
+    updated = False
+    
+    if "auth" not in data:
+        data["auth"] = {}
+        updated = True
+    if "users" not in data["auth"]:
+        data["auth"]["users"] = {}
+        updated = True
+        
+    # Check specifically for Sisira
+    users = data["auth"]["users"]
+    if "Sisira" not in users:
+        users["Sisira"] = {"password": "161277", "role": "Admin"}
+        updated = True
+        
+    if updated:
+        save_toml_secrets(data)
+
+def check_login(username, password):
+    # Using st.secrets is fine for reading current state at start of request
+    auth = st.secrets.get("auth", {})
+    users = auth.get("users", {})
+    
+    # Case insensitive search
+    for u_key, u_data in users.items():
+        if u_key.lower() == username.lower().strip():
+            # Check password - support both string and number just in case
+            stored_pw = str(u_data.get("password", "")).strip()
+            if stored_pw == str(password).strip():
+                return u_data.get("role", "User")
     return None
-@with_retry
+
 def create_user(username, password, role):
-    sheet = get_sheet()
-    ws = sheet.worksheet('Users')
-    records = ws.get_all_records(expected_headers=CONST_USERS_HEADERS)
-    for r in records:
-        if str(r.get('username', '')).strip().lower() == username.strip().lower():
+    data = load_toml_secrets()
+    users = data.get("auth", {}).get("users", {})
+    
+    # Check duplicate (case-insensitive)
+    for u_key in users.keys():
+        if u_key.lower() == username.strip().lower():
             return False, "Username already exists."
-    ws.append_row([username, password, role])
-    return True, "User created successfully."
-@with_retry
+    
+    # Add new user
+    if "auth" not in data: data["auth"] = {}
+    if "users" not in data["auth"]: data["auth"]["users"] = {}
+    
+    data["auth"]["users"][username] = {
+        "password": password,
+        "role": role
+    }
+    
+    if save_toml_secrets(data):
+        return True, "User created successfully. Please refresh to load new secrets."
+    else:
+        return False, "Failed to write secrets file."
+
+def delete_user(username):
+    data = load_toml_secrets()
+    if "auth" in data and "users" in data["auth"]:
+        users = data["auth"]["users"]
+        if username in users:
+            del users[username]
+            if save_toml_secrets(data):
+                return True, f"User '{username}' deleted."
+    return False, "User not found or save failed."
+
+def update_user_password(username, new_password):
+    data = load_toml_secrets()
+    if "auth" in data and "users" in data["auth"]:
+        users = data["auth"]["users"]
+        if username in users:
+            users[username]["password"] = new_password
+            if save_toml_secrets(data):
+                return True, f"Password updated for '{username}'."
+    return False, "User not found or save failed."
+
 def get_all_users():
-    sheet = get_sheet()
-    ws = sheet.worksheet('Users')
-    return pd.DataFrame(ws.get_all_records(expected_headers=CONST_USERS_HEADERS))
+    # Read from file directly to get latest state
+    data = load_toml_secrets()
+    users = data.get("auth", {}).get("users", {})
+    rows = []
+    for u, u_data in users.items():
+        rows.append({"username": u, "role": u_data.get("role", "User")})
+    return pd.DataFrame(rows)
+
 def render_login():
     st.markdown("## 🔐 Login")
     with st.form("login_form"):
@@ -666,7 +736,6 @@ def render_delete_page():
                         for m in success_msgs:
                             st.success(m)
                         
-                        # Clear state to prevent button persistence
                         st.session_state['del_checked'] = False
                         st.session_state['del_org_id'] = ""
                         st.session_state['del_brand_id'] = ""
@@ -703,14 +772,12 @@ def render_export():
                 'Status': brand.get('status', 'Pending'),
                 'Updated Date': brand.get('updated_date', ''),
             }
-            # Add access details
             for key, value in brand.items():
                 if key.endswith('_Access') or key.endswith('_Details'):
                     brand_row[key] = value
             
             export_data.append(brand_row)
             
-            # Add competitors
             for comp in full_details.get('competitors', []):
                 comp_row = {
                     'Organization Name': selected_org_name,
@@ -720,7 +787,6 @@ def render_export():
                     'Competitor Name': comp['name'],
                     'Competitor ID': comp['id'],
                 }
-                # Add access details for competitor
                 for key, value in comp.items():
                     if key.endswith('_Access') or key.endswith('_Details'):
                         comp_row[key] = value
@@ -763,6 +829,8 @@ def render_export():
 
 def render_user_manager():
     st.markdown('<h1>User Manager</h1>', unsafe_allow_html=True)
+    
+    # Create User Section
     with st.expander("➕ Add New User", expanded=True):
         with st.form("create_user_form"):
             new_user = st.text_input("Username").strip()
@@ -779,12 +847,59 @@ def render_user_manager():
                         st.error(msg)
                 else:
                     st.warning("Username and Password are required.")
+    
     st.divider()
-    st.subheader("Existing Users")
+    
+    # Manage Users Section
+    st.subheader("Manage Existing Users")
     df_users = get_all_users()
+    
     if not df_users.empty:
-        display_df = df_users[['username', 'role']]
-        st.dataframe(display_df, use_container_width=True)
+        # User Selection
+        # Filter out current user to avoid self-deletion if safer, but usually admin can delete anyone.
+        # Let's list all.
+        user_list = df_users['username'].tolist()
+        selected_user_to_manage = st.selectbox("Select User to Manage", [""] + user_list)
+        
+        if selected_user_to_manage:
+            sel_user_row = df_users[df_users['username'] == selected_user_to_manage].iloc[0]
+            curr_role = sel_user_row['role']
+            st.info(f"Selected User: **{selected_user_to_manage}** ({curr_role})")
+            
+            col_manage_1, col_manage_2 = st.columns(2)
+            
+            # Change Password
+            with col_manage_1:
+                st.markdown("#### 🔑 Change Password")
+                new_pwd_input = st.text_input("New Password", type="password", key=f"new_pwd_{selected_user_to_manage}")
+                if st.button("Update Password"):
+                     if new_pwd_input:
+                         ok, msg = update_user_password(selected_user_to_manage, new_pwd_input)
+                         if ok:
+                                st.success(msg)
+                                time.sleep(1)
+                                st.rerun()
+                         else:
+                                st.error(msg)
+                     else:
+                         st.warning("Please enter a new password.")
+            
+            # Delete User
+            with col_manage_2:
+                st.markdown("#### 🗑️ Delete User")
+                st.warning("This action cannot be undone.")
+                if st.button("Delete User", type="primary"):
+                    ok, msg = delete_user(selected_user_to_manage)
+                    if ok:
+                        st.success(msg)
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+        
+        st.divider()
+        st.caption("All Users List")
+        st.dataframe(df_users[['username', 'role']], use_container_width=True)
     else:
         st.info("No users found.")
 def render_new_client_flow():
@@ -1034,7 +1149,7 @@ def generate_export_df(org_name, brands_data, comps_df):
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
-    priority = ['Organization', 'Type', 'Parent Brand', 'name', 'Status', 'Updated Date', 'website_url', 'google_trends']
+    priority = ['Organization', 'Type', 'Parent Brand', 'name', 'Status', 'Updated Date', 'website_url', 'google_trends', 'social_listening', 'social_listening_keywords']
     cols = [c for c in df.columns if c in priority] + [c for c in df.columns if c not in priority]
     params = []
     seen = set()

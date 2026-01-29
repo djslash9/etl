@@ -2,6 +2,7 @@
 json/
 co.json
 secrets.toml
+.streamlit/
 .env
 
 # Application artifacts
