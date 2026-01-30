@@ -274,45 +274,24 @@ def delete_org_record(org_id):
     sheet = get_sheet()
     ws_org = sheet.worksheet('Organizations')
     ws_brand = sheet.worksheet('Brands')
-    ws_comp = sheet.worksheet('Competitors')
     
     cell = ws_org.find(str(org_id), in_column=1)
     if not cell:
-        return False
+        return False, "Organization not found."
+    
+    # Check if brands exist
+    brand_cells = ws_brand.findall(str(org_id), in_column=2)
+    if brand_cells:
+        return False, "Cannot delete Organization: Existing Brands found. Please delete them first."
         
     org_name = ws_org.cell(cell.row, 2).value
     
-    to_archive = []
-    
-    to_archive.append(['Organization', org_id, org_name, '', '', '', '', ''])
-    
-    brands_to_delete = [] # list of (row_idx, brand_id, brand_name)
-    all_brands = ws_brand.get_all_records(expected_headers=CONST_BRAND_HEADERS)
-    
-    brand_cells = ws_brand.findall(str(org_id), in_column=2)
-    brand_rows_indices = sorted([c.row for c in brand_cells], reverse=True)
-    
-    for r_idx in brand_rows_indices:
-        b_vals = ws_brand.row_values(r_idx)
-        b_id = b_vals[0]
-        b_name = b_vals[2]
-        to_archive.append(['Brand', org_id, org_name, b_id, b_name, '', '', json.dumps(b_vals)])
-        
-        comp_cells = ws_comp.findall(str(b_id), in_column=2)
-        comp_rows_indices = sorted([c.row for c in comp_cells], reverse=True)
-        for cr_idx in comp_rows_indices:
-             c_vals = ws_comp.row_values(cr_idx)
-             c_id = c_vals[0]
-             c_name = c_vals[2]
-             to_archive.append(['Competitor', org_id, org_name, b_id, b_name, c_id, c_name, json.dumps(c_vals)])
-             ws_comp.delete_rows(cr_idx)
-             
-        ws_brand.delete_rows(r_idx)
-        
+    # Archive Org
+    to_archive = [['Organization', org_id, org_name, '', '', '', '', '']]
     archive_full_context(to_archive)
     
     ws_org.delete_rows(cell.row)
-    return True
+    return True, "Organization deleted successfully."
 
 @with_retry
 def delete_brand_record(brand_id):
@@ -322,7 +301,7 @@ def delete_brand_record(brand_id):
     
     cell = ws_brand.find(str(brand_id), in_column=1)
     if not cell:
-        return False
+        return False, "Brand not found."
         
     b_vals = ws_brand.row_values(cell.row)
     b_id = b_vals[0]
@@ -330,21 +309,19 @@ def delete_brand_record(brand_id):
     b_name = b_vals[2]
     org_name = get_org_name(org_id)
     
-    to_archive = []
-    to_archive.append(['Brand', org_id, org_name, b_id, b_name, '', '', json.dumps(b_vals)])
+    # 1. Archive Brand ONLY
+    to_archive = [['Brand', org_id, org_name, b_id, b_name, '', '', json.dumps(b_vals)]]
+    archive_full_context(to_archive)
     
+    # 2. Delete Competitors (NO ARCHIVE)
     comp_cells = ws_comp.findall(str(b_id), in_column=2)
     comp_rows_indices = sorted([c.row for c in comp_cells], reverse=True)
     for cr_idx in comp_rows_indices:
-         c_vals = ws_comp.row_values(cr_idx)
-         c_id = c_vals[0]
-         c_name = c_vals[2]
-         to_archive.append(['Competitor', org_id, org_name, b_id, b_name, c_id, c_name, json.dumps(c_vals)])
          ws_comp.delete_rows(cr_idx)
          
-    archive_full_context(to_archive)
+    # 3. Delete Brand
     ws_brand.delete_rows(cell.row)
-    return True
+    return True, "Brand and its competitors deleted successfully."
 @st.cache_data(ttl=60)
 def get_all_organizations():
     sheet = get_sheet()
@@ -634,9 +611,8 @@ def render_delete_page():
     if st.session_state.get('del_checked'):
         d_org = st.session_state.get('del_org_id')
         d_brand = st.session_state.get('del_brand_id')
-        found_something = False
-        target_brand_name = None
-        target_org_name_for_brand = None
+        
+        # Display Info
         if d_brand:
             try:
                 sheet = get_sheet()
@@ -644,53 +620,41 @@ def render_delete_page():
                 cell = ws_brand.find(str(d_brand), in_column=1)
                 if cell:
                     b_row = ws_brand.row_values(cell.row)
-                    if len(b_row) > 2:
-                        target_brand_name = b_row[2] 
-                        linked_org_id = b_row[1]
-                        target_org_name_for_brand = get_org_name(linked_org_id)
-                    st.info(f"🏷️ **Brand Found**: '{target_brand_name}' (ID: {d_brand}) belonging to Org: '{target_org_name_for_brand}'")
-                    found_something = True
+                    b_name_disp = b_row[2] if len(b_row) > 2 else "Unknown"
+                    st.info(f"🏷️ **Brand Found**: '{b_name_disp}' (ID: {d_brand})")
+                    st.warning("⚠️ Deleting this Brand will **PERMANENTLY DELETE** all its Competitor data (without archiving competitors). The Brand record itself will be archived.")
+                    
+                    if st.button("🗑️ Delete Brand"):
+                         success, msg = delete_brand_record(d_brand)
+                         if success:
+                             st.success(msg)
+                             time.sleep(2)
+                             st.rerun()
+                         else:
+                             st.error(msg)
                 else:
                     st.error(f"❌ Brand ID {d_brand} not found.")
             except Exception as e:
-                st.warning(CONST_DB_BUSY_MSG)
-        target_org_name = None
+                st.error(f"Error checking brand: {e}")
+
         if d_org:
             try:
-                target_org_name = get_org_name(d_org)
-                if target_org_name != 'Unknown':
-                    st.info(f"🏢 **Organization Found**: '{target_org_name}' (ID: {d_org})")
-                    found_something = True
+                org_name_disp = get_org_name(d_org)
+                if org_name_disp != 'Unknown':
+                    st.info(f"🏢 **Organization Found**: '{org_name_disp}' (ID: {d_org})")
+                    
+                    if st.button("🗑️ Delete Organization"):
+                        success, msg = delete_org_record(d_org)
+                        if success:
+                            st.success(msg)
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(msg)
                 else:
                     st.error(f"❌ Organization ID {d_org} not found.")
             except Exception as e:
-                st.warning(CONST_DB_BUSY_MSG)
-        if found_something:
-            st.markdown("### confirm Deletion")
-            st.write("Are you sure you want to delete the identified records above?")
-            if st.button("🗑️ Permanent Delete", type="primary"):
-                try:
-                    success_msgs = []
-                    if d_brand and target_brand_name:
-                        if delete_brand_record(d_brand):
-                            success_msgs.append(f"Brand '{target_brand_name}' (ID: {d_brand}) deleted.")
-                    if d_org and target_org_name and target_org_name != 'Unknown':
-                        if delete_org_record(d_org):
-                            success_msgs.append(f"Organization '{target_org_name}' (ID: {d_org}) deleted.")
-                    if success_msgs:
-                        for m in success_msgs:
-                            st.success(m)
-                        
-                        st.session_state['del_checked'] = False
-                        st.session_state['del_org_id'] = ""
-                        st.session_state['del_brand_id'] = ""
-                        
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.error("Deletion failed or records no longer exist.")
-                except Exception as e:
-                    st.warning(CONST_DB_BUSY_MSG)
+                 st.error(f"Error checking org: {e}")
 def render_export():
     st.markdown('<h1>Export Data</h1>', unsafe_allow_html=True)
     df_orgs = get_all_organizations()
