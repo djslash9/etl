@@ -4,8 +4,6 @@ import json
 import time
 import os
 import gspread
-import toml
-
 from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title='Client Onboarding Portal', page_icon='✨', layout='wide')
 st.markdown('\n<style>\n    @import url(\'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap\');\n\n    html, body, [class*="css"] {\n        font-family: \'Plus Jakarta Sans\', sans-serif;\n    }\n\n    .block-container {\n        padding-top: 2rem;\n        padding-bottom: 5rem;\n    }\n\n    h1, h2, h3 {\n        font-weight: 700;\n        letter-spacing: -0.5px;\n    }\n    \n    .stCard {\n        background-color: #ffffff;\n        padding: 2rem;\n        border-radius: 16px;\n        box-shadow: 0 4px 20px rgba(0,0,0,0.05);\n        border: 1px solid #f0f0f0;\n        margin-bottom: 20px;\n    }\n\n    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input, .stTextArea textarea {\n        border-radius: 12px;\n        border: 1px solid #e2e8f0;\n        padding: 12px;\n        font-size: 1rem;\n    }\n    \n    .streamlit-expanderHeader {\n        background-color: #f8fafc;\n        border-radius: 12px;\n        padding: 1rem;\n        font-weight: 600;\n        border: 1px solid #e2e8f0;\n    }\n\n    .info-box {\n        background: #eff6ff;\n        border: 1px solid #dbeafe;\n        color: #1e40af;\n        padding: 1rem;\n        border-radius: 12px;\n        margin-bottom: 1rem;\n    }\n\n    /* Hide Streamlit Cloud UI elements */\n    [data-testid="stToolbar"] {\n        display: none !important;\n    }\n    [data-testid="stDecoration"] {\n        display: none !important;\n    }\n    .stDeployButton {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    div[data-testid="stStatusWidget"] {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    #MainMenu {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    footer {\n        visibility: hidden !important;\n        display: none !important;\n    }\n    header {\n        background: transparent !important;\n    }\n    /* Specific selector for Hosted with Streamlit */\n    .viewerBadge_container__1QSob {\n        display: none !important;\n    }\n    /* General footer catch-all */\n    [data-testid="stFooter"] {\n        display: none !important;\n    }\n\n</style>\n', unsafe_allow_html=True)
@@ -17,6 +15,7 @@ try:
 except:
     SHEET_ID = '1avuWNfqfLykbvgtGCP52hif9nF4TqXAm5Q21Im8thps'
 CONST_ORG_HEADERS = ['org_id', 'name', 'Created_User', 'Created_Date', 'Edited_User', 'Edited_Date']
+CONST_USER_HEADERS = ['username', 'password', 'role']
 CONST_BRAND_HEADERS = ['brand_id', 'org_id', 'name', 'Status', 'Updated_Date', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL', 'Google_Trends', 'Social_Listening', 'Social_Listening_Keywords', 'Meta_Access', 'Meta_Access_Details', 'Meta_Ads_Access', 'Meta_Ads_Access_Details', 'GA_Access', 'GA_Access_Details', 'GAds_Access', 'GAds_Access_Details', 'LinkedIn_Access', 'LinkedIn_Access_Details', 'TikTok_Access', 'TikTok_Access_Details', 'Created_User', 'Created_Date', 'Edited_User', 'Edited_Date']
 CONST_COMP_HEADERS = ['comp_id', 'brand_id', 'name', 'Facebook_URL', 'Instagram_URL', 'Twitter_URL', 'Youtube_URL', 'TikTok_URL', 'LinkedIn_URL', 'Website_URL']
 
@@ -102,6 +101,20 @@ def init_db():
     except gspread.WorksheetNotFound:
         ws_comps = sheet.add_worksheet(title='Competitors', rows=100, cols=20)
         ws_comps.append_row(CONST_COMP_HEADERS)
+    
+    ensure_users_sheet(sheet)
+
+def ensure_users_sheet(sheet):
+    try:
+        ws_users = sheet.worksheet('Users')
+        cur_headers = ws_users.row_values(1)
+        if len(cur_headers) < len(CONST_USER_HEADERS):
+             ws_users.update('A1:C1', [CONST_USER_HEADERS])
+    except gspread.WorksheetNotFound:
+        ws_users = sheet.add_worksheet(title='Users', rows=100, cols=10)
+        ws_users.append_row(CONST_USER_HEADERS)
+        # Add default admin
+        ws_users.append_row(['Sisira', '161277', 'Admin'])
 
 def get_next_id(worksheet):
     try:
@@ -479,8 +492,8 @@ def main():
         st.warning(CONST_DB_BUSY_MSG)
         return
     
-    # Ensure local secrets.toml has auth structure
-    ensure_admin_exists()
+    # Ensure local secrets.toml has auth structure (REMOVED - Users now in Sheet)
+    # ensure_admin_exists() 
     set_custom_style()
     if 'authenticated' not in st.session_state:
         st.session_state['authenticated'] = False
@@ -522,117 +535,49 @@ def main():
         render_user_manager()
     elif page == 'Delete Org/ Brand':
         render_delete_page()
-@with_retry
-def get_secrets_path():
-    return os.path.join('.streamlit', 'secrets.toml')
 
-def load_toml_secrets():
-    path = get_secrets_path()
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path, "r") as f:
-            return toml.load(f)
-    except Exception as e:
-        print(f"Error loading secrets: {e}")
-        return {}
-
-def save_toml_secrets(data):
-    path = get_secrets_path()
-    try:
-        with open(path, "w") as f:
-            toml.dump(data, f)
-        return True
-    except Exception as e:
-        print(f"Error saving secrets: {e}")
-        return False
-
-def ensure_admin_exists():
-    data = load_toml_secrets()
-    updated = False
-    
-    if "auth" not in data:
-        data["auth"] = {}
-        updated = True
-    if "users" not in data["auth"]:
-        data["auth"]["users"] = {}
-        updated = True
-        
-    # Check specifically for Sisira
-    users = data["auth"]["users"]
-    if "Sisira" not in users:
-        users["Sisira"] = {"password": "161277", "role": "Admin"}
-        updated = True
-        
-    if updated:
-        save_toml_secrets(data)
 
 def check_login(username, password):
-    # Using st.secrets is fine for reading current state at start of request
-    auth = st.secrets.get("auth", {})
-    users = auth.get("users", {})
-    
-    # Case insensitive search
-    for u_key, u_data in users.items():
-        if u_key.lower() == username.lower().strip():
-            # Check password - support both string and number just in case
-            stored_pw = str(u_data.get("password", "")).strip()
-            if stored_pw == str(password).strip():
-                return u_data.get("role", "User")
-    return None
+    try:
+        sheet = get_sheet()
+        ws = sheet.worksheet('Users')
+        records = ws.get_all_records(expected_headers=CONST_USER_HEADERS)
+        
+        for r in records:
+            if str(r.get('username', '')).strip().lower() == username.strip().lower():
+                # In a real app, hash this. Here we compare plain text as per existing logic.
+                if str(r.get('password', '')).strip() == str(password).strip():
+                    return r.get('role', 'User')
+        return None
+    except Exception as e:
+        # Fallback for safety or initial setup issues
+        print(f"Login check failed: {e}")
+        return None
 
 def create_user(username, password, role):
-    data = load_toml_secrets()
-    users = data.get("auth", {}).get("users", {})
-    
-    # Check duplicate (case-insensitive)
-    for u_key in users.keys():
-        if u_key.lower() == username.strip().lower():
-            return False, "Username already exists."
-    
-    # Add new user
-    if "auth" not in data: data["auth"] = {}
-    if "users" not in data["auth"]: data["auth"]["users"] = {}
-    
-    data["auth"]["users"][username] = {
-        "password": password,
-        "role": role
-    }
-    
-    if save_toml_secrets(data):
-        return True, "User created successfully. Please refresh to load new secrets."
-    else:
-        return False, "Failed to write secrets file."
-
-def delete_user(username):
-    data = load_toml_secrets()
-    if "auth" in data and "users" in data["auth"]:
-        users = data["auth"]["users"]
-        if username in users:
-            del users[username]
-            if save_toml_secrets(data):
-                return True, f"User '{username}' deleted."
-    return False, "User not found or save failed."
-
-def update_user_password(username, new_password):
-    data = load_toml_secrets()
-    if "auth" in data and "users" in data["auth"]:
-        users = data["auth"]["users"]
-        if username in users:
-            users[username]["password"] = new_password
-            if save_toml_secrets(data):
-                return True, f"Password updated for '{username}'."
-    return False, "User not found or save failed."
+    try:
+        sheet = get_sheet()
+        ws = sheet.worksheet('Users')
+        records = ws.get_all_records(expected_headers=CONST_USER_HEADERS)
+        
+        # Check existence
+        for r in records:
+            if str(r.get('username', '')).strip().lower() == username.strip().lower():
+                return False, "Username already exists."
+        
+        ws.append_row([username, password, role])
+        return True, "User created successfully."
+    except Exception as e:
+        return False, f"Failed to create user: {e}"
 
 def get_all_users():
-    # Read from file directly to get latest state
-    data = load_toml_secrets()
-    users = data.get("auth", {}).get("users", {})
-    rows = []
-    for u, u_data in users.items():
-        rows.append({"username": u, "role": u_data.get("role", "User")})
-    return pd.DataFrame(rows)
-
+    try:
+        sheet = get_sheet()
+        ws = sheet.worksheet('Users')
+        records = ws.get_all_records(expected_headers=CONST_USER_HEADERS)
+        return pd.DataFrame(records)
+    except Exception:
+        return pd.DataFrame(columns=CONST_USER_HEADERS)
 def render_login():
     st.markdown("## 🔐 Login")
     with st.form("login_form"):
@@ -829,8 +774,6 @@ def render_export():
 
 def render_user_manager():
     st.markdown('<h1>User Manager</h1>', unsafe_allow_html=True)
-    
-    # Create User Section
     with st.expander("➕ Add New User", expanded=True):
         with st.form("create_user_form"):
             new_user = st.text_input("Username").strip()
@@ -847,59 +790,12 @@ def render_user_manager():
                         st.error(msg)
                 else:
                     st.warning("Username and Password are required.")
-    
     st.divider()
-    
-    # Manage Users Section
-    st.subheader("Manage Existing Users")
+    st.subheader("Existing Users")
     df_users = get_all_users()
-    
     if not df_users.empty:
-        # User Selection
-        # Filter out current user to avoid self-deletion if safer, but usually admin can delete anyone.
-        # Let's list all.
-        user_list = df_users['username'].tolist()
-        selected_user_to_manage = st.selectbox("Select User to Manage", [""] + user_list)
-        
-        if selected_user_to_manage:
-            sel_user_row = df_users[df_users['username'] == selected_user_to_manage].iloc[0]
-            curr_role = sel_user_row['role']
-            st.info(f"Selected User: **{selected_user_to_manage}** ({curr_role})")
-            
-            col_manage_1, col_manage_2 = st.columns(2)
-            
-            # Change Password
-            with col_manage_1:
-                st.markdown("#### 🔑 Change Password")
-                new_pwd_input = st.text_input("New Password", type="password", key=f"new_pwd_{selected_user_to_manage}")
-                if st.button("Update Password"):
-                     if new_pwd_input:
-                         ok, msg = update_user_password(selected_user_to_manage, new_pwd_input)
-                         if ok:
-                                st.success(msg)
-                                time.sleep(1)
-                                st.rerun()
-                         else:
-                                st.error(msg)
-                     else:
-                         st.warning("Please enter a new password.")
-            
-            # Delete User
-            with col_manage_2:
-                st.markdown("#### 🗑️ Delete User")
-                st.warning("This action cannot be undone.")
-                if st.button("Delete User", type="primary"):
-                    ok, msg = delete_user(selected_user_to_manage)
-                    if ok:
-                        st.success(msg)
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-        
-        st.divider()
-        st.caption("All Users List")
-        st.dataframe(df_users[['username', 'role']], use_container_width=True)
+        display_df = df_users[['username', 'role']]
+        st.dataframe(display_df, use_container_width=True)
     else:
         st.info("No users found.")
 def render_new_client_flow():
