@@ -556,77 +556,6 @@ def page_zip_processor(client_name):
                     del st.session_state.current_zip
                 st.info('Processing finished. Upload a new ZIP to start again.')
 
-def render_one_off_upload_block():
-    st.markdown("### ⚡ Quick Process Single File")
-    with st.expander("Upload & Process a single file immediately", expanded=True):
-        col1, col2 = st.columns([3, 1])
-        with col1:
-             uploaded_file = st.file_uploader("Select Excel File", type=['xlsx', 'xls'], key="one_off_uploader")
-        with col2:
-             st.write("") # Spacer
-             st.write("") # Spacer
-             process_btn = st.button("⚡ Process Now", type="primary", key="one_off_process")
-        
-        file_date = datetime.now()
-
-        if process_btn and uploaded_file:
-             with st.spinner(f"Processing {uploaded_file.name}..."):
-                 try:
-                     xls = pd.ExcelFile(uploaded_file)
-                     top_posts_df = pd.DataFrame()
-                     
-                     for sheet_name in xls.sheet_names:
-                         try:
-                             # Read sheet without header initially
-                             df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
-                             if df.empty:
-                                 continue
-                             
-                             # 1. Remove first column
-                             if len(df.columns) > 1:
-                                 df = df.iloc[:, 1:]
-                             
-                             # 2. Remove first 4 rows (0-3), so we start from row 4 (index 4)
-                             if len(df) > 4:
-                                 df = df.iloc[4:]
-                             else:
-                                 # Not enough rows
-                                 continue
-                             
-                             # 3. Treat first row as column headers
-                             # Reset index to make the first row index 0
-                             df = df.reset_index(drop=True)
-                             new_header = df.iloc[0]
-                             df = df[1:] # Take data from next row onwards
-                             df.columns = new_header
-                             
-                             # 4. Append
-                             top_posts_df = pd.concat([top_posts_df, df], ignore_index=True)
-                             
-                         except Exception as sheet_e:
-                             st.warning(f"Could not process sheet {sheet_name}: {sheet_e}")
-
-                     if not top_posts_df.empty:
-                         st.success("✅ File Processed Successfully!")
-                         st.markdown("### 📊 Sample Data (Top 5 rows)")
-                         st.dataframe(top_posts_df.head(5))
-                         
-                         # Download Button
-                         csv = top_posts_df.to_csv(index=False).encode('utf-8')
-                         st.download_button(
-                             label="📥 Download Processed CSV",
-                             data=csv,
-                             file_name=f"quick_processed_{file_date.strftime('%Y%m%d_%H%M%S')}.csv",
-                             mime='text/csv',
-                         )
-                     else:
-                         st.warning("No valid data found after processing rules.")
-
-                 except Exception as e:
-                     st.error(f"Error processing file: {e}")
-        elif process_btn and not uploaded_file:
-            st.warning("⚠️ Please select a file first.")
-
 def app():
     st.markdown('\n<style>\n    .main-header {\n        font-size: 2.5rem;\n        font-weight: bold;\n        color: #1f77b4;\n        text-align: center;\n        margin-bottom: 2rem;\n    }\n    .metric-card {\n        background-color: #f8f9fa;\n        padding: 1rem;\n        border-radius: 10px;\n        text-align: center;\n        border: 1px solid #e9ecef;\n    }\n    .metric-value {\n        font-size: 2rem;\n        font-weight: bold;\n        color: #1f77b4;\n    }\n    .metric-label {\n        font-size: 1rem;\n        color: #6c757d;\n    }\n    .stButton>button {\n        width: 100%;\n    }\n    /* From Single File App */\n    .file-list-item {\n        display: flex;\n        align-items: center;\n        justify-content: space-between;\n        padding: 0.5rem;\n        border-radius: 0.5rem;\n        background-color: #f0f2f6;\n        margin-bottom: 0.5rem;\n    }\n    .file-list-item span {\n        font-family: monospace;\n    }\n    /* From Zip File App */\n    .warning-box {\n        padding: 1rem;\n        border-radius: 0.5rem;\n        background-color: #fff3cd;\n        border: 1px solid #ffeaa7;\n        margin: 1rem 0;\n    }\n    .zip-info {\n        background-color: #e8f4fd;\n        padding: 1rem;\n        border-radius: 0.5rem;\n        border: 1px solid #b8daff;\n        margin: 1rem 0;\n    }\n</style>\n', unsafe_allow_html=True)
     st.markdown('<h1 style="text-align: center; color: #002b5c;">� FPK File Processor</h1>', unsafe_allow_html=True)
@@ -635,10 +564,8 @@ def app():
     mode = st.radio('Select Upload Mode:', ['📦 ZIP File Upload', '📁 Single File(s) Upload'], horizontal=True, help='Choose whether to upload a ZIP file containing folders or individual Excel files.')
     st.markdown('---')
     if mode == '📦 ZIP File Upload':
-        render_one_off_upload_block()
         page_zip_processor(client_name)
     else:
-        render_one_off_upload_block()
         page_single_files(client_name)
     st.markdown('---')
     st.markdown("\n        <div style='text-align: center; color: #666; margin-top: 2rem; margin-bottom: 2rem;'>\n            <p>Created by @djslash9 | 2025</p>\n        </div>\n        ", unsafe_allow_html=True)
