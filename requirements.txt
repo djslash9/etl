@@ -3,7 +3,3 @@ pandas
 openpyxl
 easyocr
 numpy
-nltk
-torch
-transformers
-plotly
