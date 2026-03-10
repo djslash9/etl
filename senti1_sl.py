@@ -6,6 +6,9 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import torch
+import torch.classes
+# Fix Streamlit file watcher issue with PyTorch's C++ classes 
+torch.classes.__path__ = []
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
